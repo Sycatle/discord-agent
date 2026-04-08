@@ -16,4 +16,6 @@ class ClaudeProvider(LLMProvider):
             system=system_prompt,
             messages=[{"role": "user", "content": user_prompt}],
         )
+        if not msg.content or msg.content[0].type != "text":
+            raise ValueError("Claude returned no text content (empty response or non-text block)")
         return msg.content[0].text

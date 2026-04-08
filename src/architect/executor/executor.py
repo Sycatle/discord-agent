@@ -32,7 +32,7 @@ class Executor:
             case ActionType.CREATE_ROLE:
                 role = await guild.create_role(
                     name=p["name"],
-                    color=discord.Color(int(p.get("color", "0x000000"), 16)),
+                    color=discord.Color(int(p.get("color", "000000").lstrip("#"), 16)),
                     mentionable=p.get("mentionable", False),
                 )
                 return f"Rôle créé : @{role.name}"

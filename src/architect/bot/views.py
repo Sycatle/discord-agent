@@ -45,6 +45,6 @@ def build_plan_embed(plan: Plan) -> discord.Embed:
         f"`{i + 1}.` **{a.type}** — {a.params}"
         for i, a in enumerate(plan.actions)
     )
-    embed.add_field(name=f"{len(plan.actions)} action(s)", value=actions_text, inline=False)
+    embed.add_field(name=f"{len(plan.actions)} action(s)", value=actions_text or "Aucune action.", inline=False)
     embed.set_footer(text="Confirmez ou annulez dans 120s.")
     return embed
