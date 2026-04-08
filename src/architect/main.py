@@ -4,9 +4,13 @@ from .bot.bot import ArchitectBot
 from .config import settings
 
 
+async def _run() -> None:
+    async with ArchitectBot() as bot:
+        await bot.start(settings.discord_token)
+
+
 def main() -> None:
-    bot = ArchitectBot()
-    asyncio.run(bot.start(settings.discord_token))
+    asyncio.run(_run())
 
 
 if __name__ == "__main__":
