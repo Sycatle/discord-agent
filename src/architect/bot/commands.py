@@ -38,6 +38,12 @@ class ArchitectCommands(commands.Cog):
         if not view.confirmed:
             return
 
+        if interaction.guild is None:
+            await interaction.followup.send(
+                "Cette commande doit être utilisée dans un serveur.", ephemeral=True
+            )
+            return
+
         try:
             results = await self.executor.execute(plan, interaction.guild)
             summary = "\n".join(f"✅ {r}" for r in results)

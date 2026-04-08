@@ -20,9 +20,9 @@ class ConfirmView(discord.ui.View):
                 "Seul l'admin qui a lancé la commande peut confirmer.", ephemeral=True
             )
             return
+        await interaction.response.defer()
         self.confirmed = True
         self.stop()
-        await interaction.response.defer()
 
     @discord.ui.button(label="Annuler", style=discord.ButtonStyle.danger, emoji="❌")
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
