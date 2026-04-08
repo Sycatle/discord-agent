@@ -18,4 +18,7 @@ class OpenAIProvider(LLMProvider):
                 {"role": "user", "content": user_prompt},
             ],
         )
-        return resp.choices[0].message.content
+        content = resp.choices[0].message.content
+        if content is None:
+            raise ValueError("OpenAI returned no text content (possible content filter or tool-call response)")
+        return content
