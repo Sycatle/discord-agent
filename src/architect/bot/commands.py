@@ -15,9 +15,9 @@ class ArchitectCommands(commands.Cog):
 
     @app_commands.command(
         name="architect",
-        description="Génère et exécute un plan de configuration Discord.",
+        description="Generate and execute a Discord configuration plan.",
     )
-    @app_commands.describe(prompt="Décris les salons, catégories et rôles à créer")
+    @app_commands.describe(prompt="Describe the channels, categories and roles to create")
     @app_commands.default_permissions(administrator=True)
     async def architect(self, interaction: discord.Interaction, prompt: str) -> None:
         await interaction.response.defer(ephemeral=True)
@@ -26,7 +26,7 @@ class ArchitectCommands(commands.Cog):
             plan = await self.agent.generate_plan(prompt)
         except Exception as e:
             await interaction.followup.send(
-                f"Erreur lors de la génération du plan : {e}", ephemeral=True
+                f"Error generating plan: {e}", ephemeral=True
             )
             return
 
@@ -40,15 +40,15 @@ class ArchitectCommands(commands.Cog):
 
         if interaction.guild is None:
             await interaction.followup.send(
-                "Cette commande doit être utilisée dans un serveur.", ephemeral=True
+                "This command must be used inside a server.", ephemeral=True
             )
             return
 
         try:
             results = await self.executor.execute(plan, interaction.guild)
             summary = "\n".join(f"✅ {r}" for r in results)
-            await interaction.followup.send(f"**Plan exécuté :**\n{summary}", ephemeral=True)
+            await interaction.followup.send(f"**Plan executed:**\n{summary}", ephemeral=True)
         except Exception as e:
             await interaction.followup.send(
-                f"Erreur lors de l'exécution : {e}", ephemeral=True
+                f"Error during execution: {e}", ephemeral=True
             )

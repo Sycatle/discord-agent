@@ -16,8 +16,8 @@ class MockProvider(LLMProvider):
 
 
 VALID_PLAN_JSON = json.dumps({
-    "title": "Plan Gaming",
-    "description": "Crée un espace gaming",
+    "title": "Gaming Plan",
+    "description": "Create a gaming space",
     "actions": [
         {"type": "create_category", "params": {"name": "Gaming"}},
         {"type": "create_text_channel", "params": {"name": "general", "category": "Gaming"}},
@@ -37,9 +37,9 @@ async def test_generate_plan_valid():
     from architect.agent.agent import ArchitectAgent
     with patch("architect.agent.agent._build_provider", return_value=MockProvider(VALID_PLAN_JSON)):
         agent = ArchitectAgent()
-    plan = await agent.generate_plan("Crée un espace gaming")
+    plan = await agent.generate_plan("Create a gaming space")
     assert isinstance(plan, Plan)
-    assert plan.title == "Plan Gaming"
+    assert plan.title == "Gaming Plan"
     assert len(plan.actions) == 2
 
 

@@ -17,4 +17,4 @@ class ArchitectBot(commands.Bot):
         await self.tree.sync(guild=guild)
 
     async def on_ready(self) -> None:
-        print(f"Bot connecté : {self.user} (guild_id={settings.discord_guild_id})")
+        print(f"Bot connected: {self.user} (guild_id={settings.discord_guild_id})")

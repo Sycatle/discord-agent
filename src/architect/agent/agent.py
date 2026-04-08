@@ -7,10 +7,10 @@ from .providers.claude import ClaudeProvider
 from .providers.openai import OpenAIProvider
 
 SYSTEM_PROMPT_TEMPLATE = """\
-Tu es un architecte de serveur Discord. Génère un plan structuré en JSON strict \
-selon ce schéma exactement :
+You are a Discord server architect. Generate a structured plan in strict JSON \
+following this schema exactly:
 {schema}
-Réponds UNIQUEMENT avec le JSON valide, sans balises markdown, sans explication."""
+Reply ONLY with valid JSON, no markdown fences, no explanation."""
 
 
 def _build_provider() -> LLMProvider:

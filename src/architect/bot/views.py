@@ -13,31 +13,31 @@ class ConfirmView(discord.ui.View):
     def _is_invoker(self, interaction: discord.Interaction) -> bool:
         return interaction.user.id == self.invoker_id
 
-    @discord.ui.button(label="Confirmer", style=discord.ButtonStyle.success, emoji="✅")
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.success, emoji="✅")
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         if not self._is_invoker(interaction):
             await interaction.response.send_message(
-                "Seul l'admin qui a lancé la commande peut confirmer.", ephemeral=True
+                "Only the admin who triggered the command can confirm.", ephemeral=True
             )
             return
         await interaction.response.defer()
         self.confirmed = True
         self.stop()
 
-    @discord.ui.button(label="Annuler", style=discord.ButtonStyle.danger, emoji="❌")
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, emoji="❌")
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         if not self._is_invoker(interaction):
             await interaction.response.send_message(
-                "Seul l'admin qui a lancé la commande peut annuler.", ephemeral=True
+                "Only the admin who triggered the command can cancel.", ephemeral=True
             )
             return
         self.stop()
-        await interaction.response.send_message("Plan annulé.", ephemeral=True)
+        await interaction.response.send_message("Plan cancelled.", ephemeral=True)
 
 
 def build_plan_embed(plan: Plan) -> discord.Embed:
     embed = discord.Embed(
-        title=f"Plan : {plan.title}",
+        title=f"Plan: {plan.title}",
         description=plan.description,
         color=discord.Color.blurple(),
     )
@@ -45,6 +45,6 @@ def build_plan_embed(plan: Plan) -> discord.Embed:
         f"`{i + 1}.` **{a.type}** — {a.params}"
         for i, a in enumerate(plan.actions)
     )
-    embed.add_field(name=f"{len(plan.actions)} action(s)", value=actions_text or "Aucune action.", inline=False)
-    embed.set_footer(text="Confirmez ou annulez dans 120s.")
+    embed.add_field(name=f"{len(plan.actions)} action(s)", value=actions_text or "No actions.", inline=False)
+    embed.set_footer(text="Confirm or cancel within 120s.")
     return embed

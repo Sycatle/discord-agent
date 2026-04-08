@@ -17,17 +17,17 @@ class Executor:
         match action.type:
             case ActionType.CREATE_CATEGORY:
                 cat = await guild.create_category(name=p["name"])
-                return f"Catégorie créée : {cat.name}"
+                return f"Category created: {cat.name}"
 
             case ActionType.CREATE_TEXT_CHANNEL:
                 category = discord.utils.get(guild.categories, name=p.get("category"))
                 ch = await guild.create_text_channel(name=p["name"], category=category)
-                return f"Salon texte créé : #{ch.name}"
+                return f"Text channel created: #{ch.name}"
 
             case ActionType.CREATE_VOICE_CHANNEL:
                 category = discord.utils.get(guild.categories, name=p.get("category"))
                 ch = await guild.create_voice_channel(name=p["name"], category=category)
-                return f"Salon vocal créé : {ch.name}"
+                return f"Voice channel created: {ch.name}"
 
             case ActionType.CREATE_ROLE:
                 role = await guild.create_role(
@@ -35,7 +35,7 @@ class Executor:
                     color=discord.Color(int(p.get("color", "000000").lstrip("#"), 16)),
                     mentionable=p.get("mentionable", False),
                 )
-                return f"Rôle créé : @{role.name}"
+                return f"Role created: @{role.name}"
 
             case ActionType.SET_CHANNEL_PERMISSIONS:
                 channel = discord.utils.get(guild.channels, name=p["channel"])
@@ -46,7 +46,7 @@ class Executor:
                     raise ValueError(f"Role '{p['role']}' not found in guild")
                 overwrite = discord.PermissionOverwrite(**p.get("permissions", {}))
                 await channel.set_permissions(role, overwrite=overwrite)
-                return f"Permissions définies : #{p['channel']} → @{p['role']}"
+                return f"Permissions set: #{p['channel']} → @{p['role']}"
 
             case _:
                 raise NotImplementedError(f"No handler for action type: {action.type}")
