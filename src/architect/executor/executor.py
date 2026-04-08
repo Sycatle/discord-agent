@@ -1,6 +1,6 @@
 import discord
 
-from ..models.actions import ActionType
+from ..models.actions import Action, ActionType
 from ..models.plan import Plan
 
 
@@ -12,7 +12,7 @@ class Executor:
             results.append(result)
         return results
 
-    async def _dispatch(self, action, guild: discord.Guild) -> str:
+    async def _dispatch(self, action: Action, guild: discord.Guild) -> str:
         p = action.params
         match action.type:
             case ActionType.CREATE_CATEGORY:
@@ -40,6 +40,13 @@ class Executor:
             case ActionType.SET_CHANNEL_PERMISSIONS:
                 channel = discord.utils.get(guild.channels, name=p["channel"])
                 role = discord.utils.get(guild.roles, name=p["role"])
+                if channel is None:
+                    raise ValueError(f"Channel '{p['channel']}' not found in guild")
+                if role is None:
+                    raise ValueError(f"Role '{p['role']}' not found in guild")
                 overwrite = discord.PermissionOverwrite(**p.get("permissions", {}))
                 await channel.set_permissions(role, overwrite=overwrite)
                 return f"Permissions définies : #{p['channel']} → @{p['role']}"
+
+            case _:
+                raise NotImplementedError(f"No handler for action type: {action.type}")
