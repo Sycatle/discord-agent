@@ -1,16 +1,51 @@
 import json
 
 from ..config import settings
+from ..models.actions import ActionType
 from ..models.plan import Plan
 from .providers.base import LLMProvider
 from .providers.claude import ClaudeProvider
 from .providers.openai import OpenAIProvider
 
-SYSTEM_PROMPT_TEMPLATE = """\
-You are a Discord server architect. Generate a structured plan in strict JSON \
-following this schema exactly:
-{schema}
-Reply ONLY with valid JSON, no markdown fences, no explanation."""
+# Derived from enum — automatically stays in sync when new ActionTypes are added.
+_VALID_TYPES = ", ".join(f'"{t.value}"' for t in ActionType)
+
+# Concrete example: one instance per ActionType. The LLM copies structure, not schema metadata.
+_PLAN_EXAMPLE = json.dumps(
+    {
+        "title": "Example Server",
+        "description": "Brief description of what this plan creates.",
+        "actions": [
+            {"type": "create_category", "params": {"name": "General"}},
+            {"type": "create_text_channel", "params": {"name": "welcome", "category": "General"}},
+            {"type": "create_voice_channel", "params": {"name": "Lounge", "category": "General"}},
+            {"type": "create_role", "params": {"name": "Member", "color": 3478219, "mentionable": True}},
+            {
+                "type": "set_channel_permissions",
+                "params": {
+                    "channel": "welcome",
+                    "role": "Member",
+                    "allow": ["read_messages"],
+                    "deny": ["send_messages"],
+                },
+            },
+        ],
+    },
+    indent=2,
+)
+
+SYSTEM_PROMPT = (
+    "You are a Discord server architect.\n\n"
+    "Reply ONLY with a JSON object that has exactly these three keys:\n"
+    '  "title"       — a short string name for the plan\n'
+    '  "description" — a one-sentence summary\n'
+    '  "actions"     — an array of action objects\n\n'
+    "Each action object must have exactly two keys:\n"
+    f'  "type"   — one of: {_VALID_TYPES}\n'
+    '  "params" — an object whose keys depend on the action type\n\n'
+    f"Example (follow this structure exactly, no extra keys, no markdown):\n{_PLAN_EXAMPLE}\n\n"
+    "Reply ONLY with valid JSON. No markdown fences. No explanation. No schema keys."
+)
 
 
 def _build_provider() -> LLMProvider:
@@ -24,9 +59,7 @@ def _build_provider() -> LLMProvider:
 class ArchitectAgent:
     def __init__(self) -> None:
         self._provider = _build_provider()
-        self._schema = json.dumps(Plan.model_json_schema(), indent=2)
 
     async def generate_plan(self, prompt: str) -> Plan:
-        system = SYSTEM_PROMPT_TEMPLATE.format(schema=self._schema)
-        raw = await self._provider.complete(system, prompt)
+        raw = await self._provider.complete(SYSTEM_PROMPT, prompt)
         return Plan.model_validate_json(raw)
