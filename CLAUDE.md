@@ -14,7 +14,7 @@ Python 3.12 · uv · discord.py 2.x · Pydantic v2 · anthropic + openai SDKs
 ## Architecture
 
 Layered : `models/` → `agent/` → `executor/` → `bot/`
-Chaque couche ne connaît que la couche en dessous. `bot/` ne touche pas à `executor/` directement.
+Chaque couche ne connaît que la couche en dessous. `bot/` n'appelle pas l'API Discord directement — elle délègue à `executor/`. `bot/` peut importer `executor/` mais ne doit pas bypasser la validation `agent/`.
 
 ## Conventions
 
