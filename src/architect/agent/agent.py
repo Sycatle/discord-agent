@@ -16,7 +16,9 @@ Réponds UNIQUEMENT avec le JSON valide, sans balises markdown, sans explication
 def _build_provider() -> LLMProvider:
     if settings.llm_provider == "claude":
         return ClaudeProvider(settings.llm_api_key, settings.llm_model)
-    return OpenAIProvider(settings.llm_api_key, settings.llm_model)
+    if settings.llm_provider == "openai":
+        return OpenAIProvider(settings.llm_api_key, settings.llm_model)
+    raise ValueError(f"Unknown LLM provider: {settings.llm_provider!r}")
 
 
 class ArchitectAgent:
