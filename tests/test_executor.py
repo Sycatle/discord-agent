@@ -13,12 +13,14 @@ def _make_guild() -> MagicMock:
     guild = MagicMock(spec=discord.Guild)
     guild.categories = []
     guild.roles = []
-    guild.channels = []
 
     cat = MagicMock(); cat.name = "Gaming"
-    ch_text = MagicMock(); ch_text.name = "general"
+    ch_text = MagicMock(); ch_text.name = "general"; ch_text.set_permissions = AsyncMock()
     ch_voice = MagicMock(); ch_voice.name = "Vocal"
     role = MagicMock(); role.name = "Joueur"
+
+    guild.channels = [ch_text]
+    guild.roles = [role]
 
     guild.create_category = AsyncMock(return_value=cat)
     guild.create_text_channel = AsyncMock(return_value=ch_text)
@@ -74,3 +76,30 @@ async def test_execute_multiple_actions_in_order():
     assert len(results) == 2
     guild.create_category.assert_called_once()
     guild.create_text_channel.assert_called_once()
+
+
+async def test_execute_create_voice_channel():
+    guild = _make_guild()
+    plan = Plan(
+        title="T", description="D",
+        actions=[Action(type=ActionType.CREATE_VOICE_CHANNEL, params={"name": "Vocal"})]
+    )
+    results = await Executor().execute(plan, guild)
+    assert "Vocal" in results[0]
+    guild.create_voice_channel.assert_called_once_with(name="Vocal", category=None)
+
+
+async def test_execute_set_channel_permissions():
+    guild = _make_guild()
+    plan = Plan(
+        title="T", description="D",
+        actions=[Action(
+            type=ActionType.SET_CHANNEL_PERMISSIONS,
+            params={"channel": "general", "role": "Joueur", "permissions": {"view_channel": True}},
+        )]
+    )
+    results = await Executor().execute(plan, guild)
+    assert "general" in results[0]
+    assert "Joueur" in results[0]
+    # guild.channels[0] is ch_text (name="general"), guild.roles[0] is role (name="Joueur")
+    guild.channels[0].set_permissions.assert_called_once()
