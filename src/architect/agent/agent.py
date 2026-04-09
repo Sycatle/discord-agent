@@ -1,71 +1,77 @@
-import json
+from __future__ import annotations
 
-from ..config import settings
-from ..models.actions import ActionType
-from ..models.plan import Plan
-from .providers.base import LLMProvider
-from .providers.claude import ClaudeProvider
-from .providers.openai import OpenAIProvider
-
-# Derived from enum — automatically stays in sync when new ActionTypes are added.
-_VALID_TYPES = ", ".join(f'"{t.value}"' for t in ActionType)
-
-# Concrete example: one instance per ActionType. The LLM copies structure, not schema metadata.
-_PLAN_EXAMPLE = json.dumps(
-    {
-        "title": "Example Server",
-        "description": "Brief description of what this plan creates.",
-        "actions": [
-            {"type": "create_category", "params": {"name": "General"}},
-            {"type": "create_text_channel", "params": {"name": "welcome", "category": "General"}},
-            {"type": "create_voice_channel", "params": {"name": "Lounge", "category": "General"}},
-            {"type": "create_role", "params": {"name": "Member", "color": "#3498DB", "mentionable": True}},
-            {
-                "type": "set_channel_permissions",
-                "params": {
-                    "channel": "welcome",
-                    "role": "Member",
-                    "allow": ["read_messages"],
-                    "deny": ["send_messages"],
-                },
-            },
-            {"type": "reply", "params": {"message": "Here are the current channels: #general, #welcome"}},
-        ],
-    },
-    indent=2,
+from architect.agent.events import (
+    AgentEvent,
+    ClarificationEvent,
+    ConfirmationRequiredEvent,
+    ReadOnlyToolEvent,
+    ReplyEvent,
 )
+from architect.agent.providers.base import LLMProvider
+from architect.agent.tools import META_TOOLS, MUTATION_TOOLS, READONLY_TOOLS, get_tools
 
-SYSTEM_PROMPT = (
-    "You are a Discord server architect.\n\n"
-    "Reply ONLY with a JSON object that has exactly these three keys:\n"
-    '  "title"       — a short string name for the plan\n'
-    '  "description" — a one-sentence summary\n'
-    '  "actions"     — an array of action objects\n\n'
-    "Each action object must have exactly two keys:\n"
-    f'  "type"   — one of: {_VALID_TYPES}\n'
-    '  "params" — an object whose keys depend on the action type\n\n'
-    'For read-only requests (listing channels, roles, etc.), use the "reply" action type with '
-    'params: {"message": "..."}. Use the server state provided in the user message to populate the reply.\n\n'
-    f"Example (follow this structure exactly, no extra keys, no markdown):\n{_PLAN_EXAMPLE}\n\n"
-    "Reply ONLY with valid JSON. No markdown fences. No explanation. No schema keys."
-)
+_ALL_KNOWN_TOOLS: frozenset[str] = META_TOOLS | READONLY_TOOLS | MUTATION_TOOLS
+
+SYSTEM_PROMPT = """Tu es un architecte Discord. Tu aides à configurer des serveurs Discord.
+
+Utilise les tools disponibles pour :
+- Créer des catégories, channels, rôles
+- Lire l'état actuel du serveur (list_channels, list_roles)
+- Demander des clarifications si la demande est ambiguë (ask_clarification)
+
+Pour toute mutation (création, permissions), utilise les tools appropriés.
+Pour les questions simples sur l'état du serveur, utilise les tools read-only.
+Si la demande est ambiguë ou incomplète, utilise ask_clarification.
+"""
 
 
 def _build_provider() -> LLMProvider:
+    from architect.config import settings
+    from architect.agent.providers.claude import ClaudeProvider
+    from architect.agent.providers.openai import OpenAIProvider
+
     if settings.llm_provider == "claude":
-        return ClaudeProvider(settings.llm_api_key, settings.llm_model)
-    if settings.llm_provider == "openai":
-        return OpenAIProvider(settings.llm_api_key, settings.llm_model)
-    raise ValueError(f"Unknown LLM provider: {settings.llm_provider!r}")
+        return ClaudeProvider(api_key=settings.llm_api_key, model=settings.llm_model)
+    return OpenAIProvider(api_key=settings.llm_api_key, model=settings.llm_model)
 
 
 class ArchitectAgent:
-    def __init__(self) -> None:
-        self._provider = _build_provider()
+    def __init__(self, provider: LLMProvider | None = None) -> None:
+        self._provider = provider if provider is not None else _build_provider()
 
-    async def generate_plan(self, prompt: str, guild_context: str = "") -> Plan:
-        user_prompt = prompt
+    async def step(self, messages: list[dict], guild_context: str = "") -> list[AgentEvent]:
+        """
+        One LLM call. Returns list of AgentEvents for the bot layer to process.
+        The multi-turn loop is managed by the bot layer.
+
+        messages: conversation history in Anthropic format
+        guild_context: current server state string (injected into system prompt)
+        """
+        system = SYSTEM_PROMPT
         if guild_context:
-            user_prompt = f"{prompt}\n\nCurrent server state:\n{guild_context}"
-        raw = await self._provider.complete(SYSTEM_PROMPT, user_prompt)
-        return Plan.model_validate_json(raw)
+            system += f"\n\nÉtat actuel du serveur :\n{guild_context}"
+
+        blocks = await self._provider.call_with_tools(system, messages, get_tools())
+
+        events: list[AgentEvent] = []
+        for block in blocks:
+            if block["type"] == "text":
+                text = block["text"].strip()
+                if text:
+                    events.append(ReplyEvent(text=text))
+            elif block["type"] == "tool_use":
+                tool_name = block["name"]
+                params = block["input"]
+                tool_use_id = block["id"]
+                if tool_name not in _ALL_KNOWN_TOOLS:
+                    raise ValueError(f"LLM called unknown tool: {tool_name!r}")
+                if tool_name in META_TOOLS:
+                    events.append(ClarificationEvent(question=params.get("question", "")))
+                elif tool_name in READONLY_TOOLS:
+                    events.append(ReadOnlyToolEvent(tool_name=tool_name, params=params, tool_use_id=tool_use_id))
+                else:
+                    events.append(
+                        ConfirmationRequiredEvent(tool_name=tool_name, params=params, tool_use_id=tool_use_id)
+                    )
+
+        return events

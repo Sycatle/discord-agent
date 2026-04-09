@@ -9,13 +9,30 @@ class ClaudeProvider(LLMProvider):
         self._client = anthropic.AsyncAnthropic(api_key=api_key)
         self._model = model or DEFAULT_MODEL
 
-    async def complete(self, system_prompt: str, user_prompt: str) -> str:
+    async def call_with_tools(
+        self,
+        system_prompt: str,
+        messages: list[dict],
+        tools: list[dict],
+    ) -> list[dict]:
         msg = await self._client.messages.create(
             model=self._model,
-            max_tokens=2048,
+            max_tokens=4096,
             system=system_prompt,
-            messages=[{"role": "user", "content": user_prompt}],
+            messages=messages,
+            tools=tools,
         )
-        if not msg.content or msg.content[0].type != "text":
-            raise ValueError("Claude returned no text content (empty response or non-text block)")
-        return msg.content[0].text
+        result = []
+        for block in msg.content:
+            if block.type == "text":
+                result.append({"type": "text", "text": block.text})
+            elif block.type == "tool_use":
+                result.append(
+                    {
+                        "type": "tool_use",
+                        "id": block.id,
+                        "name": block.name,
+                        "input": block.input,
+                    }
+                )
+        return result
