@@ -95,7 +95,8 @@ class BotEvents(commands.Cog):
             channels = None
         guild_context = _serialize_guild(guild, channels)
 
-        await self._run_agent_loop(message, guild, channel_id, guild_context)
+        async with message.channel.typing():
+            await self._run_agent_loop(message, guild, channel_id, guild_context)
 
     async def _run_agent_loop(
         self,
@@ -117,13 +118,13 @@ class BotEvents(commands.Cog):
 
             for event in events:
                 if isinstance(event, ReplyEvent):
-                    await message.channel.send(event.text)
+                    await message.reply(event.text)
                     self._history.append(channel_id, "assistant", event.text)
                     stop_loop = True
                     break
 
                 elif isinstance(event, ClarificationEvent):
-                    await message.channel.send(event.question)
+                    await message.reply(event.question)
                     self._history.append(channel_id, "assistant", event.question)
                     stop_loop = True
                     break
