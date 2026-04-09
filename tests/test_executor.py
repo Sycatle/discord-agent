@@ -103,3 +103,16 @@ async def test_execute_set_channel_permissions():
     assert "Joueur" in results[0]
     # guild.channels[0] is ch_text (name="general"), guild.roles[0] is role (name="Joueur")
     guild.channels[0].set_permissions.assert_called_once()
+
+
+async def test_execute_reply():
+    guild = _make_guild()
+    plan = Plan(
+        title="T", description="D",
+        actions=[Action(type=ActionType.REPLY, params={"message": "Here are the channels: #general"})]
+    )
+    results = await Executor().execute(plan, guild)
+    assert results == ["Here are the channels: #general"]
+    guild.create_category.assert_not_called()
+    guild.create_text_channel.assert_not_called()
+    guild.create_role.assert_not_called()

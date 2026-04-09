@@ -30,9 +30,14 @@ class Executor:
                 return f"Voice channel created: {ch.name}"
 
             case ActionType.CREATE_ROLE:
+                raw_color = p.get("color", 0)
+                if isinstance(raw_color, str):
+                    color_int = int(raw_color.lstrip("#"), 16)
+                else:
+                    color_int = int(raw_color)
                 role = await guild.create_role(
                     name=p["name"],
-                    color=discord.Color(int(p.get("color", "000000").lstrip("#"), 16)),
+                    color=discord.Color(color_int),
                     mentionable=p.get("mentionable", False),
                 )
                 return f"Role created: @{role.name}"
@@ -47,6 +52,9 @@ class Executor:
                 overwrite = discord.PermissionOverwrite(**p.get("permissions", {}))
                 await channel.set_permissions(role, overwrite=overwrite)
                 return f"Permissions set: #{p['channel']} → @{p['role']}"
+
+            case ActionType.REPLY:
+                return str(p["message"])
 
             case _:
                 raise NotImplementedError(f"No handler for action type: {action.type}")
