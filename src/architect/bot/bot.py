@@ -18,11 +18,3 @@ class ArchitectBot(commands.Bot):
 
     async def on_ready(self) -> None:
         print(f"Bot connected: {self.user} (guild_id={settings.discord_guild_id})")
-
-    async def on_disconnect(self) -> None:
-        print("Bot disconnected")
-    
-    async def on_error(self, event_method: str, *args, **kwargs) -> None:
-        print(f"Error in event: {event_method}")
-        import traceback
-        traceback.print_exc()
