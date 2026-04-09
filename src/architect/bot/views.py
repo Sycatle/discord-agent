@@ -14,16 +14,22 @@ class ConfirmView(discord.ui.View):
     def __init__(self, invoker_id: int) -> None:
         super().__init__(timeout=120)
         self.invoker_id = invoker_id
-        self._future: asyncio.Future[ConfirmResult] = asyncio.get_event_loop().create_future()
+        self._future: asyncio.Future[ConfirmResult] | None = None
 
     def _is_invoker(self, interaction: discord.Interaction) -> bool:
         return interaction.user.id == self.invoker_id
 
+    def _get_future(self) -> asyncio.Future[ConfirmResult]:
+        if self._future is None:
+            self._future = asyncio.get_running_loop().create_future()
+        return self._future
+
     async def wait_result(self) -> ConfirmResult:
         """Await until user clicks a button or timeout."""
+        fut = self._get_future()
         await self.wait()
-        if self._future.done():
-            return self._future.result()
+        if fut.done():
+            return fut.result()
         return ConfirmResult.CANCELLED
 
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.success, emoji="✅")
@@ -32,7 +38,7 @@ class ConfirmView(discord.ui.View):
             await interaction.response.send_message("Only the admin can use this button.", ephemeral=True)
             return
         await interaction.response.defer()
-        self._future.set_result(ConfirmResult.CONFIRMED)
+        self._get_future().set_result(ConfirmResult.CONFIRMED)
         self.stop()
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, emoji="❌")
@@ -41,7 +47,7 @@ class ConfirmView(discord.ui.View):
             await interaction.response.send_message("Only the admin can use this button.", ephemeral=True)
             return
         await interaction.response.defer()
-        self._future.set_result(ConfirmResult.CANCELLED)
+        self._get_future().set_result(ConfirmResult.CANCELLED)
         self.stop()
 
     @discord.ui.button(label="Cancel All", style=discord.ButtonStyle.danger, emoji="🛑")
@@ -50,5 +56,5 @@ class ConfirmView(discord.ui.View):
             await interaction.response.send_message("Only the admin can use this button.", ephemeral=True)
             return
         await interaction.response.defer()
-        self._future.set_result(ConfirmResult.CANCELLED_ALL)
+        self._get_future().set_result(ConfirmResult.CANCELLED_ALL)
         self.stop()

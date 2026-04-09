@@ -117,11 +117,13 @@ class BotEvents(commands.Cog):
                     await message.channel.send(event.text)
                     self._history.append(channel_id, "assistant", event.text)
                     stop_loop = True
+                    break
 
                 elif isinstance(event, ClarificationEvent):
                     await message.channel.send(event.question)
                     self._history.append(channel_id, "assistant", event.question)
                     stop_loop = True
+                    break
 
                 elif isinstance(event, ReadOnlyToolEvent):
                     await message.channel.send(f"🔍 `{event.tool_name}`...")

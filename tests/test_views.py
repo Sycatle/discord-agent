@@ -21,9 +21,9 @@ def test_confirm_view_instantiation(event_loop):
     assert view.invoker_id == 12345
 
 
-def test_confirm_view_has_future(event_loop):
+def test_confirm_view_future_starts_none(event_loop):
     view = ConfirmView(invoker_id=12345)
-    assert isinstance(view._future, asyncio.Future)
+    assert view._future is None  # lazy init — created on first async call
 
 
 def test_is_invoker_true(event_loop):
