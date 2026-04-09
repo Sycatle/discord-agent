@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
 
 from architect.agent.agent import ArchitectAgent
+from architect.config import settings
 from architect.agent.events import (
     ClarificationEvent,
     ConfirmationRequiredEvent,
@@ -81,6 +82,8 @@ class BotEvents(commands.Cog):
         guild = message.guild
         if guild is None:
             await message.reply("Ce bot fonctionne uniquement dans un serveur Discord.")
+            return
+        if guild.id != settings.discord_guild_id:
             return
 
         channel_id = message.channel.id

@@ -33,7 +33,6 @@ class Executor:
             case "set_channel_permissions":
                 channel_name = params["channel"]
                 role_name = params["role"]
-                overwrite_data = params.get("overwrite", {})
 
                 channel = discord.utils.get(guild.channels, name=channel_name)
                 if channel is None:
@@ -43,7 +42,12 @@ class Executor:
                 if role is None:
                     raise ValueError(f"Role not found: {role_name!r}")
 
-                overwrite = discord.PermissionOverwrite(**overwrite_data)
+                overwrite_kwargs: dict[str, bool] = {}
+                for perm in params.get("allow") or []:
+                    overwrite_kwargs[perm] = True
+                for perm in params.get("deny") or []:
+                    overwrite_kwargs[perm] = False
+                overwrite = discord.PermissionOverwrite(**overwrite_kwargs)
                 await channel.set_permissions(role, overwrite=overwrite)
                 return f"Permissions set: #{channel_name} → @{role_name}"
 

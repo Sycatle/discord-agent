@@ -2,6 +2,14 @@ READONLY_TOOLS: frozenset[str] = frozenset({"list_channels", "list_roles"})
 
 META_TOOLS: frozenset[str] = frozenset({"ask_clarification"})
 
+MUTATION_TOOLS: frozenset[str] = frozenset({
+    "create_category",
+    "create_text_channel",
+    "create_voice_channel",
+    "create_role",
+    "set_channel_permissions",
+})
+
 
 def get_tools() -> list[dict]:
     return [

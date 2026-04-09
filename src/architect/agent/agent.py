@@ -8,7 +8,9 @@ from architect.agent.events import (
     ReplyEvent,
 )
 from architect.agent.providers.base import LLMProvider
-from architect.agent.tools import META_TOOLS, READONLY_TOOLS, get_tools
+from architect.agent.tools import META_TOOLS, MUTATION_TOOLS, READONLY_TOOLS, get_tools
+
+_ALL_KNOWN_TOOLS: frozenset[str] = META_TOOLS | READONLY_TOOLS | MUTATION_TOOLS
 
 SYSTEM_PROMPT = """Tu es un architecte Discord. Tu aides à configurer des serveurs Discord.
 
@@ -61,6 +63,8 @@ class ArchitectAgent:
                 tool_name = block["name"]
                 params = block["input"]
                 tool_use_id = block["id"]
+                if tool_name not in _ALL_KNOWN_TOOLS:
+                    raise ValueError(f"LLM called unknown tool: {tool_name!r}")
                 if tool_name in META_TOOLS:
                     events.append(ClarificationEvent(question=params.get("question", "")))
                 elif tool_name in READONLY_TOOLS:
