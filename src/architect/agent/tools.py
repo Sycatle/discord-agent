@@ -93,7 +93,6 @@ def get_tools() -> list[dict]:
             "input_schema": {
                 "type": "object",
                 "properties": {},
-                "required": [],
             },
         },
         {
@@ -102,7 +101,6 @@ def get_tools() -> list[dict]:
             "input_schema": {
                 "type": "object",
                 "properties": {},
-                "required": [],
             },
         },
         {
