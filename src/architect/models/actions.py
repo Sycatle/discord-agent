@@ -9,6 +9,7 @@ class ActionType(StrEnum):
     CREATE_VOICE_CHANNEL = "create_voice_channel"
     CREATE_ROLE = "create_role"
     SET_CHANNEL_PERMISSIONS = "set_channel_permissions"
+    REPLY = "reply"
 
 
 class Action(BaseModel):
