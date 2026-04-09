@@ -7,6 +7,22 @@ from ..executor.executor import Executor
 from .views import ConfirmView, build_plan_embed
 
 
+def _serialize_guild(guild: discord.Guild | None) -> str:
+    if guild is None:
+        return ""
+    categories = [cat.name for cat in guild.categories]
+    text_channels = [f"#{ch.name}" for ch in guild.text_channels]
+    voice_channels = [ch.name for ch in guild.voice_channels]
+    roles = [r.name for r in guild.roles if r.name != "@everyone"]
+    parts = [
+        f"Categories: {', '.join(categories) or 'none'}",
+        f"Text channels: {', '.join(text_channels) or 'none'}",
+        f"Voice channels: {', '.join(voice_channels) or 'none'}",
+        f"Roles: {', '.join(roles) or 'none'}",
+    ]
+    return "\n".join(parts)
+
+
 class ArchitectCommands(commands.Cog):
     def __init__(self, bot: commands.Bot) -> None:
         self.bot = bot
@@ -22,8 +38,10 @@ class ArchitectCommands(commands.Cog):
     async def architect(self, interaction: discord.Interaction, prompt: str) -> None:
         await interaction.response.defer(ephemeral=True)
 
+        guild_context = _serialize_guild(interaction.guild)
+
         try:
-            plan = await self.agent.generate_plan(prompt)
+            plan = await self.agent.generate_plan(prompt, guild_context=guild_context)
         except Exception as e:
             await interaction.followup.send(
                 f"Error generating plan: {e}", ephemeral=True
