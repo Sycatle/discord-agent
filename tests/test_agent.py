@@ -57,3 +57,21 @@ async def test_generate_plan_unknown_action_raises():
         agent = ArchitectAgent()
     with pytest.raises(ValidationError):
         await agent.generate_plan("prompt")
+
+
+REPLY_PLAN_JSON = json.dumps({
+    "title": "Channel List",
+    "description": "Lists current channels",
+    "actions": [
+        {"type": "reply", "params": {"message": "Text channels: #general, #welcome"}}
+    ],
+})
+
+
+async def test_generate_plan_with_guild_context():
+    from architect.agent.agent import ArchitectAgent
+    with patch("architect.agent.agent._build_provider", return_value=MockProvider(REPLY_PLAN_JSON)):
+        agent = ArchitectAgent()
+    plan = await agent.generate_plan("list channels", guild_context="Text channels: #general, #welcome")
+    assert plan.actions[0].type.value == "reply"
+    assert "general" in plan.actions[0].params["message"]

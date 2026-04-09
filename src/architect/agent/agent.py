@@ -19,7 +19,7 @@ _PLAN_EXAMPLE = json.dumps(
             {"type": "create_category", "params": {"name": "General"}},
             {"type": "create_text_channel", "params": {"name": "welcome", "category": "General"}},
             {"type": "create_voice_channel", "params": {"name": "Lounge", "category": "General"}},
-            {"type": "create_role", "params": {"name": "Member", "color": 3478219, "mentionable": True}},
+            {"type": "create_role", "params": {"name": "Member", "color": "#3498DB", "mentionable": True}},
             {
                 "type": "set_channel_permissions",
                 "params": {
@@ -29,6 +29,7 @@ _PLAN_EXAMPLE = json.dumps(
                     "deny": ["send_messages"],
                 },
             },
+            {"type": "reply", "params": {"message": "Here are the current channels: #general, #welcome"}},
         ],
     },
     indent=2,
@@ -43,6 +44,8 @@ SYSTEM_PROMPT = (
     "Each action object must have exactly two keys:\n"
     f'  "type"   — one of: {_VALID_TYPES}\n'
     '  "params" — an object whose keys depend on the action type\n\n'
+    'For read-only requests (listing channels, roles, etc.), use the "reply" action type with '
+    'params: {"message": "..."}. Use the server state provided in the user message to populate the reply.\n\n'
     f"Example (follow this structure exactly, no extra keys, no markdown):\n{_PLAN_EXAMPLE}\n\n"
     "Reply ONLY with valid JSON. No markdown fences. No explanation. No schema keys."
 )
@@ -60,6 +63,9 @@ class ArchitectAgent:
     def __init__(self) -> None:
         self._provider = _build_provider()
 
-    async def generate_plan(self, prompt: str) -> Plan:
-        raw = await self._provider.complete(SYSTEM_PROMPT, prompt)
+    async def generate_plan(self, prompt: str, guild_context: str = "") -> Plan:
+        user_prompt = prompt
+        if guild_context:
+            user_prompt = f"{prompt}\n\nCurrent server state:\n{guild_context}"
+        raw = await self._provider.complete(SYSTEM_PROMPT, user_prompt)
         return Plan.model_validate_json(raw)
