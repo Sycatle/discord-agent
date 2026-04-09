@@ -34,7 +34,7 @@ def _convert_messages(messages: list[dict]) -> list[dict]:
                             },
                         }
                     )
-            openai_msg: dict = {"role": "assistant", "content": " ".join(text_parts) or None}
+            openai_msg: dict = {"role": "assistant", "content": " ".join(text_parts) if text_parts else None}
             if tool_calls:
                 openai_msg["tool_calls"] = tool_calls
             result.append(openai_msg)
@@ -104,8 +104,8 @@ class OpenAIProvider(LLMProvider):
             for tc in msg.tool_calls:
                 try:
                     input_data = json.loads(tc.function.arguments)
-                except json.JSONDecodeError:
-                    input_data = {}
+                except json.JSONDecodeError as e:
+                    raise ValueError(f"OpenAI returned malformed tool arguments for '{tc.function.name}': {e}") from e
                 result.append(
                     {
                         "type": "tool_use",
