@@ -2,7 +2,8 @@ import discord
 from discord.ext import commands
 
 from ..config import settings
-from .commands import ArchitectCommands
+
+# TODO: rewrite in step 9 — re-add ArchitectCommands after commands.py is rewritten
 
 
 class ArchitectBot(commands.Bot):
@@ -11,7 +12,6 @@ class ArchitectBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self) -> None:
-        await self.add_cog(ArchitectCommands(self))
         guild = discord.Object(id=settings.discord_guild_id)
         self.tree.copy_global_to(guild=guild)
         await self.tree.sync(guild=guild)
