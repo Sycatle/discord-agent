@@ -30,7 +30,7 @@ def _chunk_text(text: str, limit: int = _EMBED_LIMIT) -> list[str]:
     chunks: list[str] = []
     current = ""
     for para in text.split("\n\n"):
-        candidate = (current + "\n\n" + para).lstrip() if current else para
+        candidate = current + "\n\n" + para if current else para
         if len(candidate) <= limit:
             current = candidate
         else:
@@ -41,7 +41,7 @@ def _chunk_text(text: str, limit: int = _EMBED_LIMIT) -> list[str]:
             else:
                 current = ""
                 for line in para.split("\n"):
-                    candidate = (current + "\n" + line).lstrip() if current else line
+                    candidate = current + "\n" + line if current else line
                     if len(candidate) <= limit:
                         current = candidate
                     else:
@@ -259,7 +259,8 @@ class BotEvents(commands.Cog):
                             if len(errors) > _MAX_ERRORS_DISPLAY:
                                 error_block += f"\n… et {len(errors) - _MAX_ERRORS_DISPLAY} erreurs supplémentaires"
                             result_str += f"\nErreurs :\n{error_block}"
-                        await message.channel.send(result_str)
+                        for chunk in _chunk_text(result_str, limit=2000):
+                            await message.channel.send(chunk)
                     else:  # CONFIRMED_ALL
                         progress_msg = await message.channel.send(
                             embed=discord.Embed(
@@ -278,6 +279,8 @@ class BotEvents(commands.Cog):
                         # Update final embed
                         color = discord.Color.green() if not errors else discord.Color.orange()
                         await progress_msg.edit(embed=discord.Embed(description=result_str, color=color))
+                        for chunk in _chunk_text(result_str, limit=2000):
+                            await message.channel.send(chunk)
 
                     # Add to history as tool_call + result
                     tool_call_blocks.append({
