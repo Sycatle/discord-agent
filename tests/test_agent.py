@@ -153,3 +153,52 @@ def test_system_prompt_contains_best_practices():
     assert "Best practices Discord" in SYSTEM_PROMPT
     assert "generate_plan" in SYSTEM_PROMPT
     assert "kebab-case" in SYSTEM_PROMPT
+
+
+from architect.storage.guild_context import GuildContext
+
+
+@pytest.mark.asyncio
+async def test_server_context_injected_before_guild_context():
+    provider = MockProvider([])
+    agent = ArchitectAgent(provider=provider)
+    ctx = GuildContext(guild_id=1, name="CS2", objectives="Tournois", tone="Formel", rules="Max 10")
+    await agent.step(MESSAGES, guild_context="Channels: #general", server_context=ctx)
+    prompt = provider.last_system_prompt
+    assert "## Contexte du serveur" in prompt
+    assert "**Serveur :** CS2" in prompt
+    assert "**Objectifs :** Tournois" in prompt
+    assert "**Ton :** Formel" in prompt
+    assert "**Règles :** Max 10" in prompt
+    # server context appears before guild state
+    assert prompt.index("## Contexte du serveur") < prompt.index("Channels: #general")
+
+
+@pytest.mark.asyncio
+async def test_server_context_none_no_section_added():
+    provider = MockProvider([])
+    agent = ArchitectAgent(provider=provider)
+    await agent.step(MESSAGES, server_context=None)
+    assert "## Contexte du serveur" not in provider.last_system_prompt
+
+
+@pytest.mark.asyncio
+async def test_server_context_all_empty_fields_no_section():
+    provider = MockProvider([])
+    agent = ArchitectAgent(provider=provider)
+    ctx = GuildContext(guild_id=1)  # all fields default to ""
+    await agent.step(MESSAGES, server_context=ctx)
+    assert "## Contexte du serveur" not in provider.last_system_prompt
+
+
+@pytest.mark.asyncio
+async def test_server_context_partial_fields_only_nonempty_shown():
+    provider = MockProvider([])
+    agent = ArchitectAgent(provider=provider)
+    ctx = GuildContext(guild_id=1, name="My Server")  # only name set
+    await agent.step(MESSAGES, server_context=ctx)
+    prompt = provider.last_system_prompt
+    assert "**Serveur :** My Server" in prompt
+    assert "**Objectifs :**" not in prompt
+    assert "**Ton :**" not in prompt
+    assert "**Règles :**" not in prompt
