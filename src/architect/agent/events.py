@@ -31,4 +31,11 @@ class ClarificationEvent:
     question: str
 
 
-AgentEvent: TypeAlias = ReplyEvent | ConfirmationRequiredEvent | ReadOnlyToolEvent | ClarificationEvent
+@dataclass
+class PlanGeneratedEvent:
+    title: str
+    actions: list[dict]
+    tool_use_id: str
+
+
+AgentEvent: TypeAlias = ReplyEvent | ConfirmationRequiredEvent | ReadOnlyToolEvent | ClarificationEvent | PlanGeneratedEvent

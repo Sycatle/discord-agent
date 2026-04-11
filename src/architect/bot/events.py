@@ -8,11 +8,12 @@ from architect.config import settings
 from architect.agent.events import (
     ClarificationEvent,
     ConfirmationRequiredEvent,
+    PlanGeneratedEvent,
     ReadOnlyToolEvent,
     ReplyEvent,
 )
 from architect.bot.history import ConversationHistory
-from architect.bot.views import ConfirmResult, ConfirmView
+from architect.bot.views import ConfirmResult, ConfirmView, PlanResult, PlanView
 from architect.executor.executor import Executor
 
 MAX_STEPS = 10
@@ -106,7 +107,10 @@ class BotEvents(commands.Cog):
         guild_context: str,
     ) -> None:
         for _ in range(MAX_STEPS):
-            events = await self._agent.step(self._history.get(channel_id), guild_context)
+            history = self._history.get(channel_id)
+            # Use plan model on the first step of a fresh conversation (only the user message in history)
+            use_plan_model = len(history) == 1
+            events = await self._agent.step(history, guild_context, use_plan_model=use_plan_model)
 
             if not events:
                 break
@@ -172,6 +176,62 @@ class BotEvents(commands.Cog):
                     if stop_loop:
                         break
 
+                elif isinstance(event, PlanGeneratedEvent):
+                    # Build and send the plan embed
+                    plan_view = PlanView(
+                        title=event.title,
+                        actions=event.actions,
+                        invoker_id=message.author.id,
+                    )
+                    embed, file_content = plan_view.build_embed()
+
+                    if file_content is not None:
+                        import io
+                        file = discord.File(io.BytesIO(file_content.encode()), filename="plan.txt")
+                        await message.channel.send(embed=embed, file=file, view=plan_view)
+                    else:
+                        await message.channel.send(embed=embed, view=plan_view)
+
+                    plan_result = await plan_view.wait_result()
+
+                    if plan_result == PlanResult.CANCELLED:
+                        result_str = "Plan annulé par l'utilisateur."
+                        await message.channel.send(result_str)
+                    elif plan_result == PlanResult.REVIEW:
+                        success, errors = await self._review_batch(
+                            event.actions, guild, message.author.id, message
+                        )
+                        result_str = f"Révision terminée : {success}/{len(event.actions)} actions exécutées."
+                        if errors:
+                            result_str += f"\nErreurs :\n" + "\n".join(f"• {e}" for e in errors)
+                        await message.channel.send(result_str)
+                    else:  # CONFIRMED_ALL
+                        progress_msg = await message.channel.send(
+                            embed=discord.Embed(
+                                description=f"⚙️ Exécution en cours... 0/{len(event.actions)}",
+                                color=discord.Color.orange(),
+                            )
+                        )
+                        success, errors = await self._execute_batch(event.actions, guild, progress_msg)
+                        result_str = f"✅ {success}/{len(event.actions)} actions exécutées."
+                        if errors:
+                            result_str += f"\nErreurs :\n" + "\n".join(f"• {e}" for e in errors)
+                        # Update final embed
+                        color = discord.Color.green() if not errors else discord.Color.orange()
+                        await progress_msg.edit(embed=discord.Embed(description=result_str, color=color))
+
+                    # Add to history as tool_call + result
+                    tool_call_blocks.append({
+                        "type": "tool_use",
+                        "id": event.tool_use_id,
+                        "name": "generate_plan",
+                        "input": {"title": event.title, "actions": event.actions},
+                    })
+                    tool_results.append((event.tool_use_id, result_str))
+                    has_tool_calls = True
+                    stop_loop = True
+                    break
+
             # Flush tool calls + results to history in the correct Anthropic order
             if has_tool_calls:
                 self._history.append_assistant_tool_calls(channel_id, tool_call_blocks)
@@ -180,3 +240,95 @@ class BotEvents(commands.Cog):
 
             if stop_loop or not has_tool_calls:
                 break
+
+    async def _execute_batch(
+        self,
+        actions: list[dict],
+        guild: discord.Guild,
+        progress_msg: discord.Message,
+    ) -> tuple[int, list[str]]:
+        """
+        Execute all actions sequentially. Updates progress_msg embed every 5 actions or on errors.
+        Returns (success_count, errors).
+        """
+        success_count = 0
+        errors: list[str] = []
+        total = len(actions)
+
+        for i, action in enumerate(actions, 1):
+            action_type = action.get("type", "")
+            params = action.get("params", {})
+            try:
+                await self._executor.execute(action_type, params, guild)
+                success_count += 1
+            except Exception as e:
+                errors.append(f"{action_type}({params.get('name', '?')}): {e}")
+
+            # Update progress every 5 actions or on last action
+            if i % 5 == 0 or i == total:
+                status = f"⚙️ Exécution en cours... {i}/{total}"
+                if errors:
+                    status += f"\n⚠️ {len(errors)} erreur(s)"
+                embed = discord.Embed(description=status, color=discord.Color.orange())
+                try:
+                    await progress_msg.edit(embed=embed)
+                except Exception:
+                    pass  # don't fail if edit fails
+
+        return success_count, errors
+
+    async def _review_batch(
+        self,
+        actions: list[dict],
+        guild: discord.Guild,
+        invoker_id: int,
+        message: discord.Message,
+    ) -> tuple[int, list[str]]:
+        """
+        Review each action one by one using PlanReviewView.
+        If AUTO_REST is clicked, switches to _execute_batch for remaining actions.
+        Returns (success_count, errors).
+        """
+        from .views import PlanReviewResult, PlanReviewView
+
+        success_count = 0
+        errors: list[str] = []
+
+        for i, action in enumerate(actions):
+            action_type = action.get("type", "")
+            params = action.get("params", {})
+            formatted = _format_params(params)
+
+            view = PlanReviewView(invoker_id=invoker_id)
+            await message.channel.send(
+                f"🔧 [{i+1}/{len(actions)}] **{action_type}** — {formatted}",
+                view=view,
+            )
+            result = await view.wait_result()
+
+            if result == PlanReviewResult.CANCELLED_ALL:
+                await message.channel.send("Révision annulée.")
+                break
+            elif result == PlanReviewResult.SKIPPED:
+                continue
+            elif result == PlanReviewResult.AUTO_REST:
+                # Execute remaining actions (including current one) in batch
+                remaining = actions[i:]
+                progress_msg = await message.channel.send(
+                    embed=discord.Embed(description=f"⚙️ Exécution en cours... 0/{len(remaining)}", color=discord.Color.orange())
+                )
+                batch_success, batch_errors = await self._execute_batch(remaining, guild, progress_msg)
+                success_count += batch_success
+                errors.extend(batch_errors)
+                break
+            else:  # CONFIRMED
+                try:
+                    await self._executor.execute(action_type, params, guild)
+                    success_count += 1
+                    await message.channel.send(f"✅ {action_type}: {params.get('name', '?')}")
+                except Exception as e:
+                    error_msg = f"{action_type}: {e}"
+                    errors.append(error_msg)
+                    await message.channel.send(f"❌ {error_msg}")
+
+        return success_count, errors

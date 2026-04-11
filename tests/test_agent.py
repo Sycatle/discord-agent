@@ -3,6 +3,7 @@ from architect.agent.agent import ArchitectAgent, SYSTEM_PROMPT
 from architect.agent.events import (
     ClarificationEvent,
     ConfirmationRequiredEvent,
+    PlanGeneratedEvent,
     ReadOnlyToolEvent,
     ReplyEvent,
 )
@@ -101,3 +102,54 @@ async def test_no_guild_context_uses_base_system_prompt():
     agent = ArchitectAgent(provider=provider)
     await agent.step(MESSAGES)
     assert provider.last_system_prompt == SYSTEM_PROMPT
+
+
+@pytest.mark.asyncio
+async def test_generate_plan_tool_produces_plan_generated_event():
+    provider = MockProvider([{
+        "type": "tool_use",
+        "id": "p1",
+        "name": "generate_plan",
+        "input": {
+            "title": "Serveur Gaming",
+            "actions": [
+                {"type": "create_category", "params": {"name": "Général"}},
+                {"type": "create_text_channel", "params": {"name": "bienvenue", "category": "Général"}},
+            ]
+        }
+    }])
+    agent = ArchitectAgent(provider=provider)
+    events = await agent.step(MESSAGES)
+    assert len(events) == 1
+    evt = events[0]
+    assert isinstance(evt, PlanGeneratedEvent)
+    assert evt.title == "Serveur Gaming"
+    assert len(evt.actions) == 2
+    assert evt.tool_use_id == "p1"
+
+
+@pytest.mark.asyncio
+async def test_use_plan_model_uses_plan_provider():
+    main_provider = MockProvider([{"type": "text", "text": "chat"}])
+    plan_provider = MockProvider([{"type": "text", "text": "plan"}])
+    agent = ArchitectAgent(provider=main_provider, plan_provider=plan_provider)
+
+    events = await agent.step(MESSAGES, use_plan_model=False)
+    assert events == [ReplyEvent(text="chat")]
+
+    events = await agent.step(MESSAGES, use_plan_model=True)
+    assert events == [ReplyEvent(text="plan")]
+
+
+@pytest.mark.asyncio
+async def test_use_plan_model_without_plan_provider_falls_back():
+    provider = MockProvider([{"type": "text", "text": "fallback"}])
+    agent = ArchitectAgent(provider=provider, plan_provider=None)
+    events = await agent.step(MESSAGES, use_plan_model=True)
+    assert events == [ReplyEvent(text="fallback")]
+
+
+def test_system_prompt_contains_best_practices():
+    assert "Best practices Discord" in SYSTEM_PROMPT
+    assert "generate_plan" in SYSTEM_PROMPT
+    assert "kebab-case" in SYSTEM_PROMPT

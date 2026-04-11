@@ -1,6 +1,6 @@
 READONLY_TOOLS: frozenset[str] = frozenset({"list_channels", "list_roles"})
 
-META_TOOLS: frozenset[str] = frozenset({"ask_clarification"})
+META_TOOLS: frozenset[str] = frozenset({"ask_clarification", "generate_plan"})
 
 MUTATION_TOOLS: frozenset[str] = frozenset({
     "create_category",
@@ -123,6 +123,45 @@ def get_tools() -> list[dict]:
                     },
                 },
                 "required": ["question"],
+            },
+        },
+        {
+            "name": "generate_plan",
+            "description": "Génère un plan complet de configuration Discord. Utilise ce tool quand la demande implique de créer plusieurs éléments (catégories, channels, rôles) en une seule opération. Le plan sera présenté à l'utilisateur pour validation avant toute exécution.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "Titre du plan (ex: 'Serveur Gaming Pro')",
+                    },
+                    "actions": {
+                        "type": "array",
+                        "description": "Liste ordonnée des actions à exécuter",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "type": {
+                                    "type": "string",
+                                    "enum": [
+                                        "create_category",
+                                        "create_text_channel",
+                                        "create_voice_channel",
+                                        "create_role",
+                                        "set_channel_permissions",
+                                    ],
+                                    "description": "Type d'action",
+                                },
+                                "params": {
+                                    "type": "object",
+                                    "description": "Paramètres de l'action",
+                                },
+                            },
+                            "required": ["type", "params"],
+                        },
+                    },
+                },
+                "required": ["title", "actions"],
             },
         },
     ]

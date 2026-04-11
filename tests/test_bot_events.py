@@ -201,3 +201,84 @@ async def test_on_message_empty_prompt_after_mention():
 
     msg.reply.assert_called_once_with("Quelle est ta demande ?")
     agent.step.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# PlanGeneratedEvent — batch execution
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_plan_generated_event_confirm_all():
+    """PlanGeneratedEvent → PlanView shown → user clicks Confirm All → batch executed."""
+    from unittest.mock import patch
+    from architect.agent.events import PlanGeneratedEvent
+    from architect.bot.views import PlanResult
+
+    actions = [
+        {"type": "create_category", "params": {"name": "Général"}},
+        {"type": "create_text_channel", "params": {"name": "général", "category": "Général"}},
+    ]
+    evt = PlanGeneratedEvent(title="Test Plan", actions=actions, tool_use_id="plan1")
+
+    cog, bot, agent = _make_cog([evt])
+
+    guild = _make_guild()
+    guild.id = 123456789
+    guild.fetch_channels = AsyncMock(return_value=[])
+
+    msg = _make_message(mentions_bot=True, content="crée un serveur", guild=guild)
+    msg.author.id = 42
+    msg.mentions = [cog.bot.user]  # must be same object as cog.bot.user for `in` check
+    msg.channel.typing.return_value.__aenter__ = AsyncMock(return_value=None)
+    msg.channel.typing.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    with patch("architect.bot.events.PlanView") as MockPlanView:
+        mock_view_instance = MagicMock()
+        mock_view_instance.build_embed.return_value = (MagicMock(), None)
+        mock_view_instance.wait_result = AsyncMock(return_value=PlanResult.CONFIRMED_ALL)
+        MockPlanView.return_value = mock_view_instance
+
+        cog._execute_batch = AsyncMock(return_value=(2, []))
+
+        progress_msg = MagicMock()
+        progress_msg.edit = AsyncMock()
+        msg.channel.send = AsyncMock(return_value=progress_msg)
+        msg.reply = AsyncMock()
+
+        await cog.on_message(msg)
+
+    cog._execute_batch.assert_called_once()
+    call_args = cog._execute_batch.call_args
+    assert call_args[0][0] == actions
+
+
+@pytest.mark.asyncio
+async def test_plan_generated_event_cancelled():
+    from unittest.mock import patch
+    from architect.agent.events import PlanGeneratedEvent
+    from architect.bot.views import PlanResult
+
+    evt = PlanGeneratedEvent(title="Test", actions=[], tool_use_id="p2")
+    cog, bot, agent = _make_cog([evt])
+
+    guild = _make_guild()
+    guild.id = 123456789
+    guild.fetch_channels = AsyncMock(return_value=[])
+
+    msg = _make_message(mentions_bot=True, content="test", guild=guild)
+    msg.mentions = [cog.bot.user]  # must be same object as cog.bot.user for `in` check
+    msg.channel.typing.return_value.__aenter__ = AsyncMock(return_value=None)
+    msg.channel.typing.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    with patch("architect.bot.events.PlanView") as MockPlanView:
+        mock_view = MagicMock()
+        mock_view.build_embed.return_value = (MagicMock(), None)
+        mock_view.wait_result = AsyncMock(return_value=PlanResult.CANCELLED)
+        MockPlanView.return_value = mock_view
+
+        msg.channel.send = AsyncMock(return_value=MagicMock())
+        msg.reply = AsyncMock()
+        await cog.on_message(msg)
+
+    send_calls = [str(c) for c in msg.channel.send.call_args_list]
+    assert any("annulé" in s.lower() for s in send_calls)
