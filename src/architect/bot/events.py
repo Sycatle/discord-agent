@@ -180,3 +180,95 @@ class BotEvents(commands.Cog):
 
             if stop_loop or not has_tool_calls:
                 break
+
+    async def _execute_batch(
+        self,
+        actions: list[dict],
+        guild: discord.Guild,
+        progress_msg: discord.Message,
+    ) -> tuple[int, list[str]]:
+        """
+        Execute all actions sequentially. Updates progress_msg embed every 5 actions or on errors.
+        Returns (success_count, errors).
+        """
+        success_count = 0
+        errors: list[str] = []
+        total = len(actions)
+
+        for i, action in enumerate(actions, 1):
+            action_type = action.get("type", "")
+            params = action.get("params", {})
+            try:
+                await self._executor.execute(action_type, params, guild)
+                success_count += 1
+            except Exception as e:
+                errors.append(f"{action_type}({params.get('name', '?')}): {e}")
+
+            # Update progress every 5 actions or on last action
+            if i % 5 == 0 or i == total:
+                status = f"⚙️ Exécution en cours... {i}/{total}"
+                if errors:
+                    status += f"\n⚠️ {len(errors)} erreur(s)"
+                embed = discord.Embed(description=status, color=discord.Color.orange())
+                try:
+                    await progress_msg.edit(embed=embed)
+                except Exception:
+                    pass  # don't fail if edit fails
+
+        return success_count, errors
+
+    async def _review_batch(
+        self,
+        actions: list[dict],
+        guild: discord.Guild,
+        invoker_id: int,
+        message: discord.Message,
+    ) -> tuple[int, list[str]]:
+        """
+        Review each action one by one using PlanReviewView.
+        If AUTO_REST is clicked, switches to _execute_batch for remaining actions.
+        Returns (success_count, errors).
+        """
+        from .views import PlanReviewResult, PlanReviewView
+
+        success_count = 0
+        errors: list[str] = []
+
+        for i, action in enumerate(actions):
+            action_type = action.get("type", "")
+            params = action.get("params", {})
+            formatted = _format_params(params)
+
+            view = PlanReviewView(invoker_id=invoker_id)
+            await message.channel.send(
+                f"🔧 [{i+1}/{len(actions)}] **{action_type}** — {formatted}",
+                view=view,
+            )
+            result = await view.wait_result()
+
+            if result == PlanReviewResult.CANCELLED_ALL:
+                await message.channel.send("Révision annulée.")
+                break
+            elif result == PlanReviewResult.SKIPPED:
+                continue
+            elif result == PlanReviewResult.AUTO_REST:
+                # Execute remaining actions (including current one) in batch
+                remaining = actions[i:]
+                progress_msg = await message.channel.send(
+                    embed=discord.Embed(description=f"⚙️ Exécution en cours... 0/{len(remaining)}", color=discord.Color.orange())
+                )
+                batch_success, batch_errors = await self._execute_batch(remaining, guild, progress_msg)
+                success_count += batch_success
+                errors.extend(batch_errors)
+                break
+            else:  # CONFIRMED
+                try:
+                    await self._executor.execute(action_type, params, guild)
+                    success_count += 1
+                    await message.channel.send(f"✅ {action_type}: {params.get('name', '?')}")
+                except Exception as e:
+                    error_msg = f"{action_type}: {e}"
+                    errors.append(error_msg)
+                    await message.channel.send(f"❌ {error_msg}")
+
+        return success_count, errors
