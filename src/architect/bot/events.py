@@ -19,6 +19,42 @@ from architect.storage.guild_context import GuildContext, load as load_guild_con
 
 MAX_STEPS = 10
 
+_EMBED_LIMIT = 4000  # marge de 96 chars pour le markup Discord
+_MAX_ERRORS_DISPLAY = 20
+
+
+def _chunk_text(text: str, limit: int = _EMBED_LIMIT) -> list[str]:
+    """Découpe text en chunks <= limit. Stratégie : paragraphes → lignes → coupe dure."""
+    if len(text) <= limit:
+        return [text]
+    chunks: list[str] = []
+    current = ""
+    for para in text.split("\n\n"):
+        candidate = (current + "\n\n" + para).lstrip() if current else para
+        if len(candidate) <= limit:
+            current = candidate
+        else:
+            if current:
+                chunks.append(current)
+            if len(para) <= limit:
+                current = para
+            else:
+                current = ""
+                for line in para.split("\n"):
+                    candidate = (current + "\n" + line).lstrip() if current else line
+                    if len(candidate) <= limit:
+                        current = candidate
+                    else:
+                        if current:
+                            chunks.append(current)
+                        while len(line) > limit:
+                            chunks.append(line[:limit])
+                            line = line[limit:]
+                        current = line
+    if current:
+        chunks.append(current)
+    return chunks
+
 
 def _serialize_guild(guild: discord.Guild, channels=None) -> str:
     all_channels = channels if channels is not None else guild.channels
@@ -125,11 +161,13 @@ class BotEvents(commands.Cog):
 
             for event in events:
                 if isinstance(event, ReplyEvent):
-                    if len(event.text) > 280 or "\n" in event.text:
-                        embed = discord.Embed(description=event.text, color=discord.Color.blurple())
-                        await message.reply(embed=embed)
-                    else:
-                        await message.reply(event.text)
+                    chunks = _chunk_text(event.text)
+                    for i, chunk in enumerate(chunks):
+                        embed = discord.Embed(description=chunk, color=discord.Color.blurple())
+                        if i == 0:
+                            await message.reply(embed=embed)
+                        else:
+                            await message.channel.send(embed=embed)
                     self._history.append(channel_id, "assistant", event.text)
                     stop_loop = True
                     break
@@ -182,7 +220,8 @@ class BotEvents(commands.Cog):
                         tool_results.append((event.tool_use_id, "cancelled by user"))
                     else:  # CONFIRMED
                         executed = await self._executor.execute(event.tool_name, event.params, guild)
-                        await message.channel.send(executed)
+                        for chunk in _chunk_text(executed):
+                            await message.channel.send(chunk)
                         tool_results.append((event.tool_use_id, executed))
 
                     if stop_loop:
@@ -215,7 +254,11 @@ class BotEvents(commands.Cog):
                         )
                         result_str = f"Révision terminée : {success}/{len(event.actions)} actions exécutées."
                         if errors:
-                            result_str += f"\nErreurs :\n" + "\n".join(f"• {e}" for e in errors)
+                            displayed_errors = errors[:_MAX_ERRORS_DISPLAY]
+                            error_block = "\n".join(f"• {e}" for e in displayed_errors)
+                            if len(errors) > _MAX_ERRORS_DISPLAY:
+                                error_block += f"\n… et {len(errors) - _MAX_ERRORS_DISPLAY} erreurs supplémentaires"
+                            result_str += f"\nErreurs :\n{error_block}"
                         await message.channel.send(result_str)
                     else:  # CONFIRMED_ALL
                         progress_msg = await message.channel.send(
@@ -227,7 +270,11 @@ class BotEvents(commands.Cog):
                         success, errors = await self._execute_batch(event.actions, guild, progress_msg)
                         result_str = f"{success}/{len(event.actions)} actions exécutées."
                         if errors:
-                            result_str += f"\nErreurs :\n" + "\n".join(f"• {e}" for e in errors)
+                            displayed_errors = errors[:_MAX_ERRORS_DISPLAY]
+                            error_block = "\n".join(f"• {e}" for e in displayed_errors)
+                            if len(errors) > _MAX_ERRORS_DISPLAY:
+                                error_block += f"\n… et {len(errors) - _MAX_ERRORS_DISPLAY} erreurs supplémentaires"
+                            result_str += f"\nErreurs :\n{error_block}"
                         # Update final embed
                         color = discord.Color.green() if not errors else discord.Color.orange()
                         await progress_msg.edit(embed=discord.Embed(description=result_str, color=color))

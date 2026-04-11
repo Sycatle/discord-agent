@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock
 import discord
 import pytest
 
-from architect.bot.events import BotEvents, _format_params, _serialize_guild
+from architect.bot.events import BotEvents, _chunk_text, _format_params, _serialize_guild
 from architect.bot.history import ConversationHistory
 from architect.agent.events import AgentEvent, ReplyEvent
 
@@ -282,3 +282,125 @@ async def test_plan_generated_event_cancelled():
 
     send_calls = [str(c) for c in msg.channel.send.call_args_list]
     assert any("annulé" in s.lower() for s in send_calls)
+
+
+# ---------------------------------------------------------------------------
+# _chunk_text — unit tests
+# ---------------------------------------------------------------------------
+
+def test_chunk_text_short_returns_single():
+    text = "Bonjour !"
+    assert _chunk_text(text) == [text]
+
+
+def test_chunk_text_at_limit_returns_single():
+    text = "x" * 4000
+    result = _chunk_text(text)
+    assert result == [text]
+
+
+def test_chunk_text_over_limit_splits():
+    text = "x" * 4001
+    result = _chunk_text(text)
+    assert len(result) == 2
+    assert result[0] == "x" * 4000
+    assert result[1] == "x"
+
+
+def test_chunk_text_paragraph_boundary():
+    # Two paragraphs that together exceed limit but each is below limit.
+    para_a = "a" * 3000
+    para_b = "b" * 3000
+    text = para_a + "\n\n" + para_b
+    result = _chunk_text(text)
+    assert len(result) == 2
+    assert result[0] == para_a
+    assert result[1] == para_b
+
+
+def test_chunk_text_line_boundary():
+    # A single paragraph where two lines together exceed limit but each is below.
+    line_a = "a" * 3000
+    line_b = "b" * 3000
+    text = line_a + "\n" + line_b
+    result = _chunk_text(text)
+    assert len(result) == 2
+    assert result[0] == line_a
+    assert result[1] == line_b
+
+
+def test_chunk_text_hard_cut():
+    # A single line > 2 * limit forces hard cut into multiple chunks.
+    line = "z" * 12001
+    result = _chunk_text(line, limit=4000)
+    assert all(len(c) <= 4000 for c in result)
+    assert "".join(result) == line
+
+
+def test_chunk_text_custom_limit():
+    text = "hello world"
+    result = _chunk_text(text, limit=5)
+    assert all(len(c) <= 5 for c in result)
+    assert "".join(result) == text
+
+
+def test_chunk_text_empty_string():
+    assert _chunk_text("") == [""]
+
+
+# ---------------------------------------------------------------------------
+# ReplyEvent — always uses embed now
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_reply_event_short_text_uses_embed():
+    """Short ReplyEvent (< 280 chars, no newline) now always sends embed."""
+    from unittest.mock import patch
+    from architect.agent.events import ReplyEvent
+
+    evt = ReplyEvent(text="Bonjour !")
+    cog, bot, agent = _make_cog([evt])
+
+    guild = _make_guild()
+    guild.id = 123456789
+    guild.fetch_channels = AsyncMock(return_value=[])
+
+    msg = _make_message(mentions_bot=True, content="salut", guild=guild)
+    msg.mentions = [cog.bot.user]
+    msg.channel.typing.return_value.__aenter__ = AsyncMock(return_value=None)
+    msg.channel.typing.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    await cog.on_message(msg)
+
+    msg.reply.assert_called_once()
+    call_kwargs = msg.reply.call_args
+    embed_arg = call_kwargs.kwargs.get("embed") or (call_kwargs.args[0] if call_kwargs.args else None)
+    assert isinstance(embed_arg, discord.Embed)
+
+
+@pytest.mark.asyncio
+async def test_reply_event_long_text_sends_multiple_chunks():
+    """ReplyEvent with text > _EMBED_LIMIT sends multiple messages."""
+    from architect.agent.events import ReplyEvent
+    from architect.bot.events import _EMBED_LIMIT
+
+    long_text = "a" * (_EMBED_LIMIT + 1)
+    evt = ReplyEvent(text=long_text)
+    cog, bot, agent = _make_cog([evt])
+
+    guild = _make_guild()
+    guild.id = 123456789
+    guild.fetch_channels = AsyncMock(return_value=[])
+
+    msg = _make_message(mentions_bot=True, content="hello", guild=guild)
+    msg.mentions = [cog.bot.user]
+    msg.channel.typing.return_value.__aenter__ = AsyncMock(return_value=None)
+    msg.channel.typing.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    await cog.on_message(msg)
+
+    # First chunk via reply, second via channel.send
+    msg.reply.assert_called_once()
+    msg.channel.send.assert_called_once()
+    send_embed = msg.channel.send.call_args.kwargs.get("embed")
+    assert isinstance(send_embed, discord.Embed)
