@@ -44,6 +44,8 @@ class ContextModal(discord.ui.Modal, title="Contexte du serveur"):
         self.add_item(self.rules_input)
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
+        if interaction.guild_id is None:
+            return
         ctx = GuildContext(
             guild_id=interaction.guild_id,
             name=self.name_input.value,
