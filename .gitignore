@@ -49,3 +49,6 @@ Thumbs.db
 
 # Git worktrees
 .worktrees/
+
+# Guild context data (per-server, not committed)
+data/
