@@ -8,6 +8,7 @@ from architect.agent.events import (
     ReplyEvent,
 )
 from architect.agent.providers.base import LLMProvider
+from architect.storage.guild_context import GuildContext
 
 
 class MockProvider(LLMProvider):
@@ -154,8 +155,6 @@ def test_system_prompt_contains_best_practices():
     assert "generate_plan" in SYSTEM_PROMPT
     assert "kebab-case" in SYSTEM_PROMPT
 
-
-from architect.storage.guild_context import GuildContext
 
 
 @pytest.mark.asyncio
