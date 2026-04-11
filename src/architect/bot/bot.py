@@ -3,6 +3,8 @@ from discord.ext import commands
 
 from ..config import settings
 from ..agent.agent import ArchitectAgent
+from ..agent.providers.base import LLMProvider
+from ..agent.providers.claude import ClaudeProvider
 from ..executor.executor import Executor
 from ..bot.events import BotEvents
 from ..bot.history import ConversationHistory
@@ -15,7 +17,15 @@ class ArchitectBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self) -> None:
-        agent = ArchitectAgent()
+        # Instantiate plan_provider if using Claude
+        plan_provider: LLMProvider | None = None
+        if settings.llm_provider == "claude":
+            plan_provider = ClaudeProvider(
+                api_key=settings.llm_api_key,
+                model=settings.llm_plan_model or settings.llm_model,
+            )
+
+        agent = ArchitectAgent(plan_provider=plan_provider)
         executor = Executor()
         history = ConversationHistory()
         await self.add_cog(BotEvents(self, agent, executor, history))

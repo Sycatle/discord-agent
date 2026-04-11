@@ -36,8 +36,9 @@ def _build_provider() -> LLMProvider:
 
 
 class ArchitectAgent:
-    def __init__(self, provider: LLMProvider | None = None) -> None:
+    def __init__(self, provider: LLMProvider | None = None, plan_provider: LLMProvider | None = None) -> None:
         self._provider = provider if provider is not None else _build_provider()
+        self._plan_provider = plan_provider
 
     async def step(self, messages: list[dict], guild_context: str = "") -> list[AgentEvent]:
         """
