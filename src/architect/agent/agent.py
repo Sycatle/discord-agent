@@ -34,6 +34,13 @@ Si la demande implique de créer plusieurs éléments (>2 actions), utilise gene
 - Nommage channels : kebab-case sans espaces (ex: general-discussion)
 - Channels de base recommandés : #bienvenue, #règles, #annonces
 - Pour reconfigurer un serveur entier, utilise generate_plan avec toutes les actions dans l'ordre
+
+## Formatage des réponses
+
+- Utilise le markdown Discord natif dans toutes tes réponses texte : `**gras**` pour l'emphase, `` `code` `` pour les noms de channels/rôles/catégories/valeurs techniques, ` ```blocs de code``` ` pour les sorties multi-lignes structurées, `> ` pour les notes ou avertissements, `- ` pour les listes
+- Pour les résultats de list_channels et list_roles, formate en liste markdown (`- #channel`, `- @role`), pas en texte inline séparé par des virgules
+- N'utilise jamais d'emojis dans tes réponses texte — la couche interface les gère si nécessaire
+- Les questions ask_clarification doivent être courtes et directes : 1 à 2 phrases maximum, sans préambule
 """
 
 

@@ -125,19 +125,28 @@ class BotEvents(commands.Cog):
 
             for event in events:
                 if isinstance(event, ReplyEvent):
-                    await message.reply(event.text)
+                    if len(event.text) > 280 or "\n" in event.text:
+                        embed = discord.Embed(description=event.text, color=discord.Color.blurple())
+                        await message.reply(embed=embed)
+                    else:
+                        await message.reply(event.text)
                     self._history.append(channel_id, "assistant", event.text)
                     stop_loop = True
                     break
 
                 elif isinstance(event, ClarificationEvent):
-                    await message.reply(event.question)
+                    embed = discord.Embed(
+                        title="Précision requise",
+                        description=event.question,
+                        color=discord.Color.yellow(),
+                    )
+                    await message.reply(embed=embed)
                     self._history.append(channel_id, "assistant", event.question)
                     stop_loop = True
                     break
 
                 elif isinstance(event, ReadOnlyToolEvent):
-                    await message.channel.send(f"🔍 `{event.tool_name}`...")
+                    await message.channel.send(f"`{event.tool_name}`...")
                     result = await self._executor.execute(event.tool_name, event.params, guild)
                     tool_call_blocks.append({
                         "type": "tool_use",
@@ -152,7 +161,7 @@ class BotEvents(commands.Cog):
                     formatted = _format_params(event.params)
                     view = ConfirmView(invoker_id=message.author.id)
                     await message.channel.send(
-                        f"🔧 **{event.tool_name}** — {formatted}",
+                        f"**{event.tool_name}** — {formatted}",
                         view=view,
                     )
                     confirm_result = await view.wait_result()
@@ -173,7 +182,7 @@ class BotEvents(commands.Cog):
                         tool_results.append((event.tool_use_id, "cancelled by user"))
                     else:  # CONFIRMED
                         executed = await self._executor.execute(event.tool_name, event.params, guild)
-                        await message.channel.send(f"✅ {executed}")
+                        await message.channel.send(executed)
                         tool_results.append((event.tool_use_id, executed))
 
                     if stop_loop:
@@ -211,12 +220,12 @@ class BotEvents(commands.Cog):
                     else:  # CONFIRMED_ALL
                         progress_msg = await message.channel.send(
                             embed=discord.Embed(
-                                description=f"⚙️ Exécution en cours... 0/{len(event.actions)}",
+                                description=f"Exécution en cours... 0/{len(event.actions)}",
                                 color=discord.Color.orange(),
                             )
                         )
                         success, errors = await self._execute_batch(event.actions, guild, progress_msg)
-                        result_str = f"✅ {success}/{len(event.actions)} actions exécutées."
+                        result_str = f"{success}/{len(event.actions)} actions exécutées."
                         if errors:
                             result_str += f"\nErreurs :\n" + "\n".join(f"• {e}" for e in errors)
                         # Update final embed
@@ -269,9 +278,9 @@ class BotEvents(commands.Cog):
 
             # Update progress every 5 actions or on last action
             if i % 5 == 0 or i == total:
-                status = f"⚙️ Exécution en cours... {i}/{total}"
+                status = f"Exécution en cours... {i}/{total}"
                 if errors:
-                    status += f"\n⚠️ {len(errors)} erreur(s)"
+                    status += f"\n{len(errors)} erreur(s)"
                 embed = discord.Embed(description=status, color=discord.Color.orange())
                 try:
                     await progress_msg.edit(embed=embed)
@@ -304,7 +313,7 @@ class BotEvents(commands.Cog):
 
             view = PlanReviewView(invoker_id=invoker_id)
             await message.channel.send(
-                f"🔧 [{i+1}/{len(actions)}] **{action_type}** — {formatted}",
+                f"[{i+1}/{len(actions)}] **{action_type}** — {formatted}",
                 view=view,
             )
             result = await view.wait_result()
@@ -318,7 +327,7 @@ class BotEvents(commands.Cog):
                 # Execute remaining actions (including current one) in batch
                 remaining = actions[i:]
                 progress_msg = await message.channel.send(
-                    embed=discord.Embed(description=f"⚙️ Exécution en cours... 0/{len(remaining)}", color=discord.Color.orange())
+                    embed=discord.Embed(description=f"Exécution en cours... 0/{len(remaining)}", color=discord.Color.orange())
                 )
                 batch_success, batch_errors = await self._execute_batch(remaining, guild, progress_msg)
                 success_count += batch_success
@@ -328,10 +337,10 @@ class BotEvents(commands.Cog):
                 try:
                     await self._executor.execute(action_type, params, guild)
                     success_count += 1
-                    await message.channel.send(f"✅ {action_type}: {params.get('name', '?')}")
+                    await message.channel.send(f"`{action_type}`: {params.get('name', '?')}")
                 except Exception as e:
                     error_msg = f"{action_type}: {e}"
                     errors.append(error_msg)
-                    await message.channel.send(f"❌ {error_msg}")
+                    await message.channel.send(f"**Erreur** — {error_msg}")
 
         return success_count, errors
