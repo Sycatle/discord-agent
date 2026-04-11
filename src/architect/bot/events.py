@@ -15,6 +15,7 @@ from architect.agent.events import (
 from architect.bot.history import ConversationHistory
 from architect.bot.views import ConfirmResult, ConfirmView, PlanResult, PlanView
 from architect.executor.executor import Executor
+from architect.storage.guild_context import GuildContext, load as load_guild_context
 
 MAX_STEPS = 10
 
@@ -95,9 +96,10 @@ class BotEvents(commands.Cog):
         except Exception:
             channels = None
         guild_context = _serialize_guild(guild, channels)
+        server_context = load_guild_context(guild.id)
 
         async with message.channel.typing():
-            await self._run_agent_loop(message, guild, channel_id, guild_context)
+            await self._run_agent_loop(message, guild, channel_id, guild_context, server_context)
 
     async def _run_agent_loop(
         self,
@@ -105,12 +107,13 @@ class BotEvents(commands.Cog):
         guild: discord.Guild,
         channel_id: int,
         guild_context: str,
+        server_context: GuildContext | None = None,
     ) -> None:
         for _ in range(MAX_STEPS):
             history = self._history.get(channel_id)
             # Use plan model on the first step of a fresh conversation (only the user message in history)
             use_plan_model = len(history) == 1
-            events = await self._agent.step(history, guild_context, use_plan_model=use_plan_model)
+            events = await self._agent.step(history, guild_context, server_context=server_context, use_plan_model=use_plan_model)
 
             if not events:
                 break

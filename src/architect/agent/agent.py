@@ -10,6 +10,7 @@ from architect.agent.events import (
 )
 from architect.agent.providers.base import LLMProvider
 from architect.agent.tools import META_TOOLS, MUTATION_TOOLS, READONLY_TOOLS, get_tools
+from architect.storage.guild_context import GuildContext
 
 _ALL_KNOWN_TOOLS: frozenset[str] = META_TOOLS | READONLY_TOOLS | MUTATION_TOOLS
 
@@ -36,6 +37,19 @@ Si la demande implique de créer plusieurs éléments (>2 actions), utilise gene
 """
 
 
+def _format_server_context(ctx: GuildContext) -> str:
+    lines = []
+    if ctx.name:
+        lines.append(f"**Serveur :** {ctx.name}")
+    if ctx.objectives:
+        lines.append(f"**Objectifs :** {ctx.objectives}")
+    if ctx.tone:
+        lines.append(f"**Ton :** {ctx.tone}")
+    if ctx.rules:
+        lines.append(f"**Règles :** {ctx.rules}")
+    return "\n".join(lines)
+
+
 def _build_provider() -> LLMProvider:
     from architect.config import settings
     from architect.agent.providers.claude import ClaudeProvider
@@ -51,15 +65,28 @@ class ArchitectAgent:
         self._provider = provider if provider is not None else _build_provider()
         self._plan_provider = plan_provider
 
-    async def step(self, messages: list[dict], guild_context: str = "", use_plan_model: bool = False) -> list[AgentEvent]:
+    async def step(
+        self,
+        messages: list[dict],
+        guild_context: str = "",
+        server_context: GuildContext | None = None,
+        use_plan_model: bool = False,
+    ) -> list[AgentEvent]:
         """
         One LLM call. Returns list of AgentEvents for the bot layer to process.
         The multi-turn loop is managed by the bot layer.
 
         messages: conversation history in Anthropic format
+        server_context: structured server context (guild metadata)
         guild_context: current server state string (injected into system prompt)
         """
         system = SYSTEM_PROMPT
+
+        if server_context is not None:
+            section = _format_server_context(server_context)
+            if section:
+                system += f"\n\n## Contexte du serveur\n{section}"
+
         if guild_context:
             system += f"\n\nÉtat actuel du serveur :\n{guild_context}"
 

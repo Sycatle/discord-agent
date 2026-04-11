@@ -8,6 +8,7 @@ from ..agent.providers.claude import ClaudeProvider
 from ..executor.executor import Executor
 from ..bot.events import BotEvents
 from ..bot.history import ConversationHistory
+from ..bot.context_command import ContextCommand
 
 
 class ArchitectBot(commands.Bot):
@@ -29,6 +30,10 @@ class ArchitectBot(commands.Bot):
         executor = Executor()
         history = ConversationHistory()
         await self.add_cog(BotEvents(self, agent, executor, history))
+        await self.add_cog(ContextCommand(self))
+        guild = discord.Object(id=settings.discord_guild_id)
+        self.tree.copy_global_to(guild=guild)
+        await self.tree.sync(guild=guild)
 
     async def on_ready(self) -> None:
         print(f"Bot connected: {self.user} (guild_id={settings.discord_guild_id})")
