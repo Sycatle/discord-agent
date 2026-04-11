@@ -73,8 +73,8 @@ async def test_multiple_blocks_returns_events_in_order():
     )
     agent = ArchitectAgent(provider=provider)
     events = await agent.step(MESSAGES)
+    # Text preamble is skipped when tool calls follow to prevent bot layer from stopping
     assert events == [
-        ReplyEvent(text="Je vais créer le canal."),
         ConfirmationRequiredEvent(tool_name="create_text_channel", params={"name": "general"}, tool_use_id="10"),
         ReadOnlyToolEvent(tool_name="list_roles", params={}, tool_use_id="11"),
     ]
