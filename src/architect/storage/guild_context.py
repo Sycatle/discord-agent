@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
+from architect.config import settings
+
 logger = logging.getLogger(__name__)
 
-DATA_DIR = Path(__file__).parent.parent.parent.parent / "data"
+DATA_DIR = settings.data_dir
 
 
 class GuildContext(BaseModel):
@@ -28,7 +29,7 @@ def load(guild_id: int) -> GuildContext | None:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         return GuildContext.model_validate(data)
-    except Exception as exc:
+    except (json.JSONDecodeError, ValueError) as exc:
         logger.warning("Failed to load guild context for %d: %s", guild_id, exc)
         return None
 
