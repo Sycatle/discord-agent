@@ -8,11 +8,12 @@ from architect.config import settings
 from architect.agent.events import (
     ClarificationEvent,
     ConfirmationRequiredEvent,
+    PlanGeneratedEvent,
     ReadOnlyToolEvent,
     ReplyEvent,
 )
 from architect.bot.history import ConversationHistory
-from architect.bot.views import ConfirmResult, ConfirmView
+from architect.bot.views import ConfirmResult, ConfirmView, PlanResult, PlanView
 from architect.executor.executor import Executor
 
 MAX_STEPS = 10
@@ -106,7 +107,10 @@ class BotEvents(commands.Cog):
         guild_context: str,
     ) -> None:
         for _ in range(MAX_STEPS):
-            events = await self._agent.step(self._history.get(channel_id), guild_context)
+            history = self._history.get(channel_id)
+            # Use plan model on the first step of a fresh conversation (only the user message in history)
+            use_plan_model = len(history) == 1
+            events = await self._agent.step(history, guild_context, use_plan_model=use_plan_model)
 
             if not events:
                 break
@@ -171,6 +175,62 @@ class BotEvents(commands.Cog):
 
                     if stop_loop:
                         break
+
+                elif isinstance(event, PlanGeneratedEvent):
+                    # Build and send the plan embed
+                    plan_view = PlanView(
+                        title=event.title,
+                        actions=event.actions,
+                        invoker_id=message.author.id,
+                    )
+                    embed, file_content = plan_view.build_embed()
+
+                    if file_content is not None:
+                        import io
+                        file = discord.File(io.BytesIO(file_content.encode()), filename="plan.txt")
+                        await message.channel.send(embed=embed, file=file, view=plan_view)
+                    else:
+                        await message.channel.send(embed=embed, view=plan_view)
+
+                    plan_result = await plan_view.wait_result()
+
+                    if plan_result == PlanResult.CANCELLED:
+                        result_str = "Plan annulé par l'utilisateur."
+                        await message.channel.send(result_str)
+                    elif plan_result == PlanResult.REVIEW:
+                        success, errors = await self._review_batch(
+                            event.actions, guild, message.author.id, message
+                        )
+                        result_str = f"Révision terminée : {success}/{len(event.actions)} actions exécutées."
+                        if errors:
+                            result_str += f"\nErreurs :\n" + "\n".join(f"• {e}" for e in errors)
+                        await message.channel.send(result_str)
+                    else:  # CONFIRMED_ALL
+                        progress_msg = await message.channel.send(
+                            embed=discord.Embed(
+                                description=f"⚙️ Exécution en cours... 0/{len(event.actions)}",
+                                color=discord.Color.orange(),
+                            )
+                        )
+                        success, errors = await self._execute_batch(event.actions, guild, progress_msg)
+                        result_str = f"✅ {success}/{len(event.actions)} actions exécutées."
+                        if errors:
+                            result_str += f"\nErreurs :\n" + "\n".join(f"• {e}" for e in errors)
+                        # Update final embed
+                        color = discord.Color.green() if not errors else discord.Color.orange()
+                        await progress_msg.edit(embed=discord.Embed(description=result_str, color=color))
+
+                    # Add to history as tool_call + result
+                    tool_call_blocks.append({
+                        "type": "tool_use",
+                        "id": event.tool_use_id,
+                        "name": "generate_plan",
+                        "input": {"title": event.title, "actions": event.actions},
+                    })
+                    tool_results.append((event.tool_use_id, result_str))
+                    has_tool_calls = True
+                    stop_loop = True
+                    break
 
             # Flush tool calls + results to history in the correct Anthropic order
             if has_tool_calls:
