@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import logging
 import discord
+
+logger = logging.getLogger(__name__)
 from discord.ext import commands
 
 from architect.agent.agent import ArchitectAgent

@@ -1,5 +1,8 @@
+import logging
 import discord
 from discord.ext import commands
+
+logger = logging.getLogger(__name__)
 
 from ..config import settings
 from ..agent.agent import ArchitectAgent
@@ -37,3 +40,6 @@ class ArchitectBot(commands.Bot):
 
     async def on_ready(self) -> None:
         print(f"Bot connected: {self.user} (guild_id={settings.discord_guild_id})")
+
+    async def on_error(self, event_method: str, *args, **kwargs) -> None:
+        logger.exception("Erreur non interceptée dans l'event '%s'", event_method)
