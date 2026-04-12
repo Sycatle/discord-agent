@@ -165,6 +165,17 @@ def _make_message(
     msg.channel.send = AsyncMock()
     msg.reply = AsyncMock()
 
+    status_msg = MagicMock()
+    status_msg.edit = AsyncMock()
+
+    thread = MagicMock()
+    thread.send = AsyncMock(return_value=status_msg)
+    thread.id = 43
+
+    msg.create_thread = AsyncMock(return_value=thread)
+    msg._mock_thread = thread
+    msg._mock_status_msg = status_msg
+
     return msg
 
 
@@ -185,6 +196,25 @@ async def test_on_message_ignores_non_mention_non_reply():
     bot.user.id = 999
     msg = _make_message(mentions_bot=False, is_reply_to_bot=False, content="hey")
     await cog.on_message(msg)
+    agent.step.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_guild_mismatch_replies():
+    cog, bot, agent = _make_cog()
+    bot_user = MagicMock(spec=discord.ClientUser)
+    bot_user.id = 999
+    cog.bot.user = bot_user
+
+    guild = _make_guild()
+    guild.id = 999999999  # different from DISCORD_GUILD_ID=123456789 in conftest
+
+    msg = _make_message(mentions_bot=True, content="bonjour", guild=guild)
+    msg.mentions = [bot_user]
+    await cog.on_message(msg)
+
+    msg.reply.assert_called_once()
+    assert "configuré" in str(msg.reply.call_args).lower()
     agent.step.assert_not_called()
 
 
@@ -240,16 +270,18 @@ async def test_plan_generated_event_confirm_all():
 
         cog._execute_batch = AsyncMock(return_value=(2, []))
 
-        progress_msg = MagicMock()
-        progress_msg.edit = AsyncMock()
-        msg.channel.send = AsyncMock(return_value=progress_msg)
-        msg.reply = AsyncMock()
-
         await cog.on_message(msg)
 
     cog._execute_batch.assert_called_once()
     call_args = cog._execute_batch.call_args
     assert call_args[0][0] == actions
+
+    thread = msg._mock_thread
+    status_msg = msg._mock_status_msg
+    # thread.send: 1× initial status + 1× plan embed + 1× progress_msg
+    assert thread.send.call_count == 3
+    # status_msg.edit: 1× "Plan généré..." + 1× final result
+    assert status_msg.edit.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -276,12 +308,13 @@ async def test_plan_generated_event_cancelled():
         mock_view.wait_result = AsyncMock(return_value=PlanResult.CANCELLED)
         MockPlanView.return_value = mock_view
 
-        msg.channel.send = AsyncMock(return_value=MagicMock())
-        msg.reply = AsyncMock()
         await cog.on_message(msg)
 
-    send_calls = [str(c) for c in msg.channel.send.call_args_list]
-    assert any("annulé" in s.lower() for s in send_calls)
+    status_msg = msg._mock_status_msg
+    assert status_msg.edit.call_count == 2
+    last_embed = status_msg.edit.call_args.kwargs.get("embed")
+    assert isinstance(last_embed, discord.Embed)
+    assert "annulé" in last_embed.description.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -372,9 +405,9 @@ async def test_reply_event_short_text_uses_embed():
 
     await cog.on_message(msg)
 
-    msg.reply.assert_called_once()
-    call_kwargs = msg.reply.call_args
-    embed_arg = call_kwargs.kwargs.get("embed") or (call_kwargs.args[0] if call_kwargs.args else None)
+    status_msg = msg._mock_status_msg
+    status_msg.edit.assert_called_once()
+    embed_arg = status_msg.edit.call_args.kwargs.get("embed")
     assert isinstance(embed_arg, discord.Embed)
 
 
@@ -399,8 +432,13 @@ async def test_reply_event_long_text_sends_multiple_chunks():
 
     await cog.on_message(msg)
 
-    # First chunk via reply, second via channel.send
-    msg.reply.assert_called_once()
-    msg.channel.send.assert_called_once()
-    send_embed = msg.channel.send.call_args.kwargs.get("embed")
-    assert isinstance(send_embed, discord.Embed)
+    status_msg = msg._mock_status_msg
+    thread = msg._mock_thread
+    # First chunk via status_msg.edit, second chunk via thread.send
+    status_msg.edit.assert_called_once()
+    edit_embed = status_msg.edit.call_args.kwargs.get("embed")
+    assert isinstance(edit_embed, discord.Embed)
+    # thread.send: 1× initial status_msg + 1× overflow chunk
+    assert thread.send.call_count == 2
+    overflow_embed = thread.send.call_args.kwargs.get("embed")
+    assert isinstance(overflow_embed, discord.Embed)

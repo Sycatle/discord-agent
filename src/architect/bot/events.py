@@ -20,11 +20,24 @@ from architect.storage.guild_context import GuildContext, load as load_guild_con
 MAX_STEPS = 10
 
 _EMBED_LIMIT = 4000  # marge de 96 chars pour le markup Discord
+
+
+def _make_embed(
+    description: str,
+    title: str | None = None,
+    color: discord.Color = discord.Color.blurple(),
+) -> discord.Embed:
+    return discord.Embed(title=title, description=description, color=color)
+
+
 _MAX_ERRORS_DISPLAY = 20
 
 
 def _chunk_text(text: str, limit: int = _EMBED_LIMIT) -> list[str]:
-    """Découpe text en chunks <= limit. Stratégie : paragraphes → lignes → coupe dure."""
+    """Découpe text en chunks <= limit. Stratégie : paragraphes → lignes → coupe dure.
+
+    Retourne [""] pour une chaîne vide (intentionnel : permet l'itération sans branche).
+    """
     if len(text) <= limit:
         return [text]
     chunks: list[str] = []
@@ -48,7 +61,7 @@ def _chunk_text(text: str, limit: int = _EMBED_LIMIT) -> list[str]:
                         if current:
                             chunks.append(current)
                         while len(line) > limit:
-                            chunks.append(line[:limit])
+                            chunks.append(line[:limit])  # TODO: word-boundary fallback (URLs coupées)
                             line = line[limit:]
                         current = line
     if current:
@@ -122,6 +135,7 @@ class BotEvents(commands.Cog):
             await message.reply("Ce bot fonctionne uniquement dans un serveur Discord.")
             return
         if guild.id != settings.discord_guild_id:
+            await message.reply("Ce bot n'est pas configuré pour ce serveur.")
             return
 
         channel_id = message.channel.id
@@ -134,12 +148,28 @@ class BotEvents(commands.Cog):
         guild_context = _serialize_guild(guild, channels)
         server_context = load_guild_context(guild.id)
 
-        async with message.channel.typing():
-            await self._run_agent_loop(message, guild, channel_id, guild_context, server_context)
+        thread_name = prompt[:97] + "..." if len(prompt) > 100 else prompt
+        try:
+            thread = await message.create_thread(name=thread_name, auto_archive_duration=60)
+        except discord.Forbidden:
+            thread = message.channel  # fallback sans thread
+
+        status_msg = await thread.send(
+            embed=_make_embed("Analyse en cours...", color=discord.Color.orange())
+        )
+
+        try:
+            await self._run_agent_loop(message, thread, status_msg, guild, channel_id, guild_context, server_context)
+        except Exception:
+            await status_msg.edit(
+                embed=_make_embed("Une erreur inattendue s'est produite.", color=discord.Color.red())
+            )
 
     async def _run_agent_loop(
         self,
         message: discord.Message,
+        thread: discord.abc.Messageable,
+        status_msg: discord.Message,
         guild: discord.Guild,
         channel_id: int,
         guild_context: str,
@@ -162,29 +192,25 @@ class BotEvents(commands.Cog):
             for event in events:
                 if isinstance(event, ReplyEvent):
                     chunks = _chunk_text(event.text)
-                    for i, chunk in enumerate(chunks):
-                        embed = discord.Embed(description=chunk, color=discord.Color.blurple())
-                        if i == 0:
-                            await message.reply(embed=embed)
-                        else:
-                            await message.channel.send(embed=embed)
+                    await status_msg.edit(embed=_make_embed(chunks[0]))
+                    for chunk in chunks[1:]:
+                        await thread.send(embed=_make_embed(chunk))
                     self._history.append(channel_id, "assistant", event.text)
                     stop_loop = True
                     break
 
                 elif isinstance(event, ClarificationEvent):
-                    embed = discord.Embed(
-                        title="Précision requise",
-                        description=event.question,
-                        color=discord.Color.yellow(),
+                    await status_msg.edit(
+                        embed=_make_embed(event.question, title="Précision requise", color=discord.Color.yellow())
                     )
-                    await message.reply(embed=embed)
                     self._history.append(channel_id, "assistant", event.question)
                     stop_loop = True
                     break
 
                 elif isinstance(event, ReadOnlyToolEvent):
-                    await message.channel.send(f"`{event.tool_name}`...")
+                    await status_msg.edit(
+                        embed=_make_embed(f"Outil en cours : `{event.tool_name}`...", color=discord.Color.orange())
+                    )
                     result = await self._executor.execute(event.tool_name, event.params, guild)
                     tool_call_blocks.append({
                         "type": "tool_use",
@@ -198,8 +224,8 @@ class BotEvents(commands.Cog):
                 elif isinstance(event, ConfirmationRequiredEvent):
                     formatted = _format_params(event.params)
                     view = ConfirmView(invoker_id=message.author.id)
-                    await message.channel.send(
-                        f"**{event.tool_name}** — {formatted}",
+                    await thread.send(
+                        embed=_make_embed(formatted, title=f"`{event.tool_name}`", color=discord.Color.orange()),
                         view=view,
                     )
                     confirm_result = await view.wait_result()
@@ -213,7 +239,7 @@ class BotEvents(commands.Cog):
                     has_tool_calls = True
 
                     if confirm_result == ConfirmResult.CANCELLED_ALL:
-                        await message.channel.send("Toutes les actions ont été annulées.")
+                        await thread.send(embed=_make_embed("Toutes les actions ont été annulées.", color=discord.Color.red()))
                         tool_results.append((event.tool_use_id, "cancelled by user"))
                         stop_loop = True
                     elif confirm_result == ConfirmResult.CANCELLED:
@@ -221,14 +247,16 @@ class BotEvents(commands.Cog):
                     else:  # CONFIRMED
                         executed = await self._executor.execute(event.tool_name, event.params, guild)
                         for chunk in _chunk_text(executed):
-                            await message.channel.send(chunk)
+                            await thread.send(embed=_make_embed(chunk, color=discord.Color.green()))
                         tool_results.append((event.tool_use_id, executed))
 
                     if stop_loop:
                         break
 
                 elif isinstance(event, PlanGeneratedEvent):
-                    # Build and send the plan embed
+                    await status_msg.edit(
+                        embed=_make_embed("Plan généré, en attente de validation...", color=discord.Color.orange())
+                    )
                     plan_view = PlanView(
                         title=event.title,
                         actions=event.actions,
@@ -239,18 +267,18 @@ class BotEvents(commands.Cog):
                     if file_content is not None:
                         import io
                         file = discord.File(io.BytesIO(file_content.encode()), filename="plan.txt")
-                        await message.channel.send(embed=embed, file=file, view=plan_view)
+                        await thread.send(embed=embed, file=file, view=plan_view)
                     else:
-                        await message.channel.send(embed=embed, view=plan_view)
+                        await thread.send(embed=embed, view=plan_view)
 
                     plan_result = await plan_view.wait_result()
 
                     if plan_result == PlanResult.CANCELLED:
                         result_str = "Plan annulé par l'utilisateur."
-                        await message.channel.send(result_str)
+                        await status_msg.edit(embed=_make_embed(result_str, color=discord.Color.red()))
                     elif plan_result == PlanResult.REVIEW:
                         success, errors = await self._review_batch(
-                            event.actions, guild, message.author.id, message
+                            event.actions, guild, message.author.id, message, thread
                         )
                         result_str = f"Révision terminée : {success}/{len(event.actions)} actions exécutées."
                         if errors:
@@ -259,14 +287,11 @@ class BotEvents(commands.Cog):
                             if len(errors) > _MAX_ERRORS_DISPLAY:
                                 error_block += f"\n… et {len(errors) - _MAX_ERRORS_DISPLAY} erreurs supplémentaires"
                             result_str += f"\nErreurs :\n{error_block}"
-                        for chunk in _chunk_text(result_str, limit=2000):
-                            await message.channel.send(chunk)
+                        color = discord.Color.green() if not errors else discord.Color.orange()
+                        await status_msg.edit(embed=_make_embed(result_str, color=color))
                     else:  # CONFIRMED_ALL
-                        progress_msg = await message.channel.send(
-                            embed=discord.Embed(
-                                description=f"Exécution en cours... 0/{len(event.actions)}",
-                                color=discord.Color.orange(),
-                            )
+                        progress_msg = await thread.send(
+                            embed=_make_embed(f"Exécution en cours... 0/{len(event.actions)}", color=discord.Color.orange())
                         )
                         success, errors = await self._execute_batch(event.actions, guild, progress_msg)
                         result_str = f"{success}/{len(event.actions)} actions exécutées."
@@ -276,11 +301,8 @@ class BotEvents(commands.Cog):
                             if len(errors) > _MAX_ERRORS_DISPLAY:
                                 error_block += f"\n… et {len(errors) - _MAX_ERRORS_DISPLAY} erreurs supplémentaires"
                             result_str += f"\nErreurs :\n{error_block}"
-                        # Update final embed
                         color = discord.Color.green() if not errors else discord.Color.orange()
-                        await progress_msg.edit(embed=discord.Embed(description=result_str, color=color))
-                        for chunk in _chunk_text(result_str, limit=2000):
-                            await message.channel.send(chunk)
+                        await status_msg.edit(embed=_make_embed(result_str, color=color))
 
                     # Add to history as tool_call + result
                     tool_call_blocks.append({
@@ -345,6 +367,7 @@ class BotEvents(commands.Cog):
         guild: discord.Guild,
         invoker_id: int,
         message: discord.Message,
+        thread: discord.abc.Messageable | None = None,
     ) -> tuple[int, list[str]]:
         """
         Review each action one by one using PlanReviewView.
@@ -353,6 +376,7 @@ class BotEvents(commands.Cog):
         """
         from .views import PlanReviewResult, PlanReviewView
 
+        dest = thread if thread is not None else message.channel
         success_count = 0
         errors: list[str] = []
 
@@ -362,22 +386,26 @@ class BotEvents(commands.Cog):
             formatted = _format_params(params)
 
             view = PlanReviewView(invoker_id=invoker_id)
-            await message.channel.send(
-                f"[{i+1}/{len(actions)}] **{action_type}** — {formatted}",
+            await dest.send(
+                embed=_make_embed(
+                    f"[{i+1}/{len(actions)}] {formatted}",
+                    title=f"`{action_type}`",
+                    color=discord.Color.orange(),
+                ),
                 view=view,
             )
             result = await view.wait_result()
 
             if result == PlanReviewResult.CANCELLED_ALL:
-                await message.channel.send("Révision annulée.")
+                await dest.send(embed=_make_embed("Révision annulée.", color=discord.Color.red()))
                 break
             elif result == PlanReviewResult.SKIPPED:
                 continue
             elif result == PlanReviewResult.AUTO_REST:
                 # Execute remaining actions (including current one) in batch
                 remaining = actions[i:]
-                progress_msg = await message.channel.send(
-                    embed=discord.Embed(description=f"Exécution en cours... 0/{len(remaining)}", color=discord.Color.orange())
+                progress_msg = await dest.send(
+                    embed=_make_embed(f"Exécution en cours... 0/{len(remaining)}", color=discord.Color.orange())
                 )
                 batch_success, batch_errors = await self._execute_batch(remaining, guild, progress_msg)
                 success_count += batch_success
@@ -387,10 +415,10 @@ class BotEvents(commands.Cog):
                 try:
                     await self._executor.execute(action_type, params, guild)
                     success_count += 1
-                    await message.channel.send(f"`{action_type}`: {params.get('name', '?')}")
+                    await dest.send(embed=_make_embed(f"`{action_type}`: {params.get('name', '?')}", color=discord.Color.green()))
                 except Exception as e:
                     error_msg = f"{action_type}: {e}"
                     errors.append(error_msg)
-                    await message.channel.send(f"**Erreur** — {error_msg}")
+                    await dest.send(embed=_make_embed(error_msg, title="Erreur", color=discord.Color.red()))
 
         return success_count, errors
