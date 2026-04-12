@@ -30,7 +30,7 @@ MUTATION_TOOLS: frozenset[str] = frozenset({
     "edit_welcome_screen",
 })
 
-_ALL_ACTION_TYPES = list(MUTATION_TOOLS)
+_ALL_ACTION_TYPES = sorted(MUTATION_TOOLS)  # sorted for deterministic order across restarts
 
 
 def get_tools() -> list[dict]:
@@ -547,7 +547,6 @@ def get_tools() -> list[dict]:
                         "description": "Afficher la barre de progression des boosts (optionnel)",
                     },
                 },
-                "required": [],
             },
         },
         # ── Domain 7 — Welcome Screen ─────────────────────────────────────────
@@ -573,7 +572,6 @@ def get_tools() -> list[dict]:
                         "description": "Channels mis en avant, max 5 (optionnel)",
                     },
                 },
-                "required": [],
             },
         },
         # ── Read-only ─────────────────────────────────────────────────────────
