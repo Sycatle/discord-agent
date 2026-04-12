@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, PropertyMock
+from unittest.mock import AsyncMock, MagicMock
 
 import discord
 import pytest
 
-from architect.bot.events import BotEvents, _format_params, _serialize_guild
+from architect.bot.events import BotEvents, _chunk_text, _format_params, _serialize_guild
 from architect.bot.history import ConversationHistory
 from architect.agent.events import AgentEvent, ReplyEvent
 
@@ -165,6 +165,17 @@ def _make_message(
     msg.channel.send = AsyncMock()
     msg.reply = AsyncMock()
 
+    status_msg = MagicMock()
+    status_msg.edit = AsyncMock()
+
+    thread = MagicMock()
+    thread.send = AsyncMock(return_value=status_msg)
+    thread.id = 43
+
+    msg.create_thread = AsyncMock(return_value=thread)
+    msg._mock_thread = thread
+    msg._mock_status_msg = status_msg
+
     return msg
 
 
@@ -185,6 +196,25 @@ async def test_on_message_ignores_non_mention_non_reply():
     bot.user.id = 999
     msg = _make_message(mentions_bot=False, is_reply_to_bot=False, content="hey")
     await cog.on_message(msg)
+    agent.step.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_guild_mismatch_replies():
+    cog, bot, agent = _make_cog()
+    bot_user = MagicMock(spec=discord.ClientUser)
+    bot_user.id = 999
+    cog.bot.user = bot_user
+
+    guild = _make_guild()
+    guild.id = 999999999  # different from DISCORD_GUILD_ID=123456789 in conftest
+
+    msg = _make_message(mentions_bot=True, content="bonjour", guild=guild)
+    msg.mentions = [bot_user]
+    await cog.on_message(msg)
+
+    msg.reply.assert_called_once()
+    assert "configuré" in str(msg.reply.call_args).lower()
     agent.step.assert_not_called()
 
 
@@ -240,16 +270,18 @@ async def test_plan_generated_event_confirm_all():
 
         cog._execute_batch = AsyncMock(return_value=(2, []))
 
-        progress_msg = MagicMock()
-        progress_msg.edit = AsyncMock()
-        msg.channel.send = AsyncMock(return_value=progress_msg)
-        msg.reply = AsyncMock()
-
         await cog.on_message(msg)
 
     cog._execute_batch.assert_called_once()
     call_args = cog._execute_batch.call_args
     assert call_args[0][0] == actions
+
+    thread = msg._mock_thread
+    status_msg = msg._mock_status_msg
+    # thread.send: 1× initial status + 1× plan embed + 1× progress_msg
+    assert thread.send.call_count == 3
+    # status_msg.edit: 1× "Plan généré..." + 1× final result
+    assert status_msg.edit.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -276,9 +308,137 @@ async def test_plan_generated_event_cancelled():
         mock_view.wait_result = AsyncMock(return_value=PlanResult.CANCELLED)
         MockPlanView.return_value = mock_view
 
-        msg.channel.send = AsyncMock(return_value=MagicMock())
-        msg.reply = AsyncMock()
         await cog.on_message(msg)
 
-    send_calls = [str(c) for c in msg.channel.send.call_args_list]
-    assert any("annulé" in s.lower() for s in send_calls)
+    status_msg = msg._mock_status_msg
+    assert status_msg.edit.call_count == 2
+    last_embed = status_msg.edit.call_args.kwargs.get("embed")
+    assert isinstance(last_embed, discord.Embed)
+    assert "annulé" in last_embed.description.lower()
+
+
+# ---------------------------------------------------------------------------
+# _chunk_text — unit tests
+# ---------------------------------------------------------------------------
+
+def test_chunk_text_short_returns_single():
+    text = "Bonjour !"
+    assert _chunk_text(text) == [text]
+
+
+def test_chunk_text_at_limit_returns_single():
+    text = "x" * 4000
+    result = _chunk_text(text)
+    assert result == [text]
+
+
+def test_chunk_text_over_limit_splits():
+    text = "x" * 4001
+    result = _chunk_text(text)
+    assert len(result) == 2
+    assert result[0] == "x" * 4000
+    assert result[1] == "x"
+
+
+def test_chunk_text_paragraph_boundary():
+    # Two paragraphs that together exceed limit but each is below limit.
+    para_a = "a" * 3000
+    para_b = "b" * 3000
+    text = para_a + "\n\n" + para_b
+    result = _chunk_text(text)
+    assert len(result) == 2
+    assert result[0] == para_a
+    assert result[1] == para_b
+
+
+def test_chunk_text_line_boundary():
+    # A single paragraph where two lines together exceed limit but each is below.
+    line_a = "a" * 3000
+    line_b = "b" * 3000
+    text = line_a + "\n" + line_b
+    result = _chunk_text(text)
+    assert len(result) == 2
+    assert result[0] == line_a
+    assert result[1] == line_b
+
+
+def test_chunk_text_hard_cut():
+    # A single line > 2 * limit forces hard cut into multiple chunks.
+    line = "z" * 12001
+    result = _chunk_text(line, limit=4000)
+    assert all(len(c) <= 4000 for c in result)
+    assert "".join(result) == line
+
+
+def test_chunk_text_custom_limit():
+    text = "hello world"
+    result = _chunk_text(text, limit=5)
+    assert all(len(c) <= 5 for c in result)
+    assert "".join(result) == text
+
+
+def test_chunk_text_empty_string():
+    assert _chunk_text("") == [""]
+
+
+# ---------------------------------------------------------------------------
+# ReplyEvent — always uses embed now
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_reply_event_short_text_uses_embed():
+    """Short ReplyEvent (< 280 chars, no newline) now always sends embed."""
+    from unittest.mock import patch
+    from architect.agent.events import ReplyEvent
+
+    evt = ReplyEvent(text="Bonjour !")
+    cog, bot, agent = _make_cog([evt])
+
+    guild = _make_guild()
+    guild.id = 123456789
+    guild.fetch_channels = AsyncMock(return_value=[])
+
+    msg = _make_message(mentions_bot=True, content="salut", guild=guild)
+    msg.mentions = [cog.bot.user]
+    msg.channel.typing.return_value.__aenter__ = AsyncMock(return_value=None)
+    msg.channel.typing.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    await cog.on_message(msg)
+
+    status_msg = msg._mock_status_msg
+    status_msg.edit.assert_called_once()
+    embed_arg = status_msg.edit.call_args.kwargs.get("embed")
+    assert isinstance(embed_arg, discord.Embed)
+
+
+@pytest.mark.asyncio
+async def test_reply_event_long_text_sends_multiple_chunks():
+    """ReplyEvent with text > _EMBED_LIMIT sends multiple messages."""
+    from architect.agent.events import ReplyEvent
+    from architect.bot.events import _EMBED_LIMIT
+
+    long_text = "a" * (_EMBED_LIMIT + 1)
+    evt = ReplyEvent(text=long_text)
+    cog, bot, agent = _make_cog([evt])
+
+    guild = _make_guild()
+    guild.id = 123456789
+    guild.fetch_channels = AsyncMock(return_value=[])
+
+    msg = _make_message(mentions_bot=True, content="hello", guild=guild)
+    msg.mentions = [cog.bot.user]
+    msg.channel.typing.return_value.__aenter__ = AsyncMock(return_value=None)
+    msg.channel.typing.return_value.__aexit__ = AsyncMock(return_value=False)
+
+    await cog.on_message(msg)
+
+    status_msg = msg._mock_status_msg
+    thread = msg._mock_thread
+    # First chunk via status_msg.edit, second chunk via thread.send
+    status_msg.edit.assert_called_once()
+    edit_embed = status_msg.edit.call_args.kwargs.get("embed")
+    assert isinstance(edit_embed, discord.Embed)
+    # thread.send: 1× initial status_msg + 1× overflow chunk
+    assert thread.send.call_count == 2
+    overflow_embed = thread.send.call_args.kwargs.get("embed")
+    assert isinstance(overflow_embed, discord.Embed)

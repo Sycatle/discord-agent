@@ -32,28 +32,28 @@ class ConfirmView(discord.ui.View):
             return fut.result()
         return ConfirmResult.CANCELLED
 
-    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.success, emoji="✅")
+    @discord.ui.button(label="Confirmer", style=discord.ButtonStyle.success, emoji="✅")
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         if not self._is_invoker(interaction):
-            await interaction.response.send_message("Only the admin can use this button.", ephemeral=True)
+            await interaction.response.send_message("Seul l'auteur peut utiliser ce bouton.", ephemeral=True)
             return
         await interaction.response.defer()
         self._get_future().set_result(ConfirmResult.CONFIRMED)
         self.stop()
 
-    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, emoji="❌")
+    @discord.ui.button(label="Annuler", style=discord.ButtonStyle.danger, emoji="❌")
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         if not self._is_invoker(interaction):
-            await interaction.response.send_message("Only the admin can use this button.", ephemeral=True)
+            await interaction.response.send_message("Seul l'auteur peut utiliser ce bouton.", ephemeral=True)
             return
         await interaction.response.defer()
         self._get_future().set_result(ConfirmResult.CANCELLED)
         self.stop()
 
-    @discord.ui.button(label="Cancel All", style=discord.ButtonStyle.danger, emoji="🛑")
+    @discord.ui.button(label="Tout annuler", style=discord.ButtonStyle.danger, emoji="🛑")
     async def cancel_all(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         if not self._is_invoker(interaction):
-            await interaction.response.send_message("Only the admin can use this button.", ephemeral=True)
+            await interaction.response.send_message("Seul l'auteur peut utiliser ce bouton.", ephemeral=True)
             return
         await interaction.response.defer()
         self._get_future().set_result(ConfirmResult.CANCELLED_ALL)

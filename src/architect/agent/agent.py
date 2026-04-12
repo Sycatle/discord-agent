@@ -34,6 +34,15 @@ Si la demande implique de créer plusieurs éléments (>2 actions), utilise gene
 - Nommage channels : kebab-case sans espaces (ex: general-discussion)
 - Channels de base recommandés : #bienvenue, #règles, #annonces
 - Pour reconfigurer un serveur entier, utilise generate_plan avec toutes les actions dans l'ordre
+
+## Formatage des réponses
+
+- Utilise le markdown Discord natif dans toutes tes réponses texte : `**gras**` pour l'emphase, `` `code` `` pour les noms de channels/rôles/catégories/valeurs techniques, ` ```blocs de code``` ` pour les sorties multi-lignes structurées, `> ` pour les notes ou avertissements, `- ` pour les listes
+- Pour les résultats de list_channels et list_roles, formate en liste markdown (`- #channel`, `- @role`), pas en texte inline séparé par des virgules
+- N'utilise jamais d'emojis dans tes réponses texte — la couche interface les gère si nécessaire
+- Les questions ask_clarification doivent être courtes et directes : 1 à 2 phrases maximum, sans préambule
+- N'utilise jamais de tableaux Markdown (pipes `|`) — Discord les affiche comme du texte brut sans mise en forme
+- Garde tes réponses concises par défaut ; donne du détail uniquement si l'utilisateur le demande explicitement
 """
 
 
@@ -94,10 +103,12 @@ class ArchitectAgent:
         blocks = await provider.call_with_tools(system, messages, get_tools())
 
         events: list[AgentEvent] = []
+        has_tool_use = any(b["type"] == "tool_use" for b in blocks)
+
         for block in blocks:
             if block["type"] == "text":
                 text = block["text"].strip()
-                if text:
+                if text and not has_tool_use:  # skip preamble if tool calls follow
                     events.append(ReplyEvent(text=text))
             elif block["type"] == "tool_use":
                 tool_name = block["name"]
