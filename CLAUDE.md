@@ -25,7 +25,7 @@ Chaque couche ne connaît que la couche en dessous. `bot/` n'appelle pas l'API D
 
 ## Ce qu'on ne fait PAS
 
-- Pas de `DELETE_*` actions dans le MVP.
+- Les actions DELETE requièrent une double confirmation explicite de l'admin.
 - Pas de logging persistant.
 - Pas de retry automatique sur erreur LLM — on remonte l'erreur à l'admin.
 - Pas de feature flag ou config dynamique — change le code, bump la version.
