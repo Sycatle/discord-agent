@@ -9,6 +9,7 @@ def test_action_type_whitelist_rejects_unknown():
 
 
 def test_action_type_accepts_all_valid():
+    assert len(ActionType) == 27  # 5 existing + 22 new; catches silent StrEnum value aliasing
     for t in ActionType:
         a = Action(type=t, params={"name": "test"})
         assert a.type == t
