@@ -69,7 +69,7 @@ ignore = [
     "PT018",    # composite assertions are clearer in some tests
     "B008",     # function call in default arg is fine in fixtures
 ]
-"src/architect/agent/tools.py" = ["E501", "RUF003"]
+"src/architect/agent/tools.py" = ["RUF003"]
 "src/architect/executor/executor.py" = ["SIM102"]
 "src/architect/executor/handlers/server.py" = ["PLR0912"]
 "src/architect/bot/events.py" = ["PLR0912", "PLR0915", "RUF003", "PLC0415", "B008", "PLW2901", "SIM105"]
@@ -100,7 +100,6 @@ exclude = ["tests/", "build/", ".venv/"]
 # # type: ignore[attr-defined] across dozens of call sites. The tools.py
 # module remains until Phase 5 rewrites it from Pydantic schemas.
 module = [
-    "architect.agent.tools",
     "architect.agent.providers.*",
     "architect.bot.events",
     "architect.bot.bot",
