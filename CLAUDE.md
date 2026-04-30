@@ -16,16 +16,19 @@ Python 3.12 · uv · discord.py 2.x · Pydantic v2 · anthropic + openai SDKs
 Layered : `models/` → `agent/` → `executor/` → `bot/`
 Chaque couche ne connaît que la couche en dessous. `bot/` n'appelle pas l'API Discord directement — elle délègue à `executor/`. `bot/` peut importer `executor/` mais ne doit pas bypasser la validation `agent/`.
 
+Périmètre : 27 ActionTypes whitelistés couvrant channels (text/voice/forum/stage), roles, members, scheduled events, automod, server settings, welcome screen.
+
 ## Conventions
 
-- Pas de DB pour le MVP — stateless.
+- Pas de DB — stateless.
 - Config via Pydantic Settings (`config.py`), env vars, jamais hardcodé.
 - Provider LLM sélectionnable via `LLM_PROVIDER=claude|openai` — pas de couplage fort.
 - Tests avec mock LLM (`MockProvider`) et mock guild (`AsyncMock`).
+- Erreurs Discord : log via `logger.exception`, message structuré à l'utilisateur, jamais de stacktrace brute dans l'embed.
 
 ## Ce qu'on ne fait PAS
 
-- Les actions DELETE requièrent une double confirmation explicite de l'admin.
 - Pas de logging persistant.
 - Pas de retry automatique sur erreur LLM — on remonte l'erreur à l'admin.
 - Pas de feature flag ou config dynamique — change le code, bump la version.
+- Pas d'auto-confirmation pour les actions destructrices : `delete_*` passent par la même `ConfirmView` que les autres mutations, mais l'utilisateur doit valider explicitement (le mode `Tout confirmer` reste un opt-in conscient).
