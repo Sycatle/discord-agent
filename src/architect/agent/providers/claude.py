@@ -16,9 +16,9 @@ class ClaudeProvider(LLMProvider):
         messages: list[dict],
         tools: list[dict],
     ) -> list[dict]:
-        # Cache le system prompt + le tools schema (les deux blocs les plus volumineux
-        # et stables d'un tour à l'autre). Le dernier bloc cache_control couvre tout
-        # ce qui le précède dans l'ordre canonique tools → system → messages.
+        # Cache the system prompt and the tools schema (the two largest blocks
+        # and the most stable across turns). The last cache_control block covers
+        # everything before it in the canonical order tools → system → messages.
         cached_tools = [
             {**t, "cache_control": {"type": "ephemeral"}} if i == len(tools) - 1 else t
             for i, t in enumerate(tools)

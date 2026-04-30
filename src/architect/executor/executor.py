@@ -9,8 +9,8 @@ import discord
 logger = logging.getLogger(__name__)
 
 
-# Permission requise par tool. Vérifiée avant l'appel Discord pour produire un
-# message clair au lieu d'un 403. Les tools read-only sont absents → pas de check.
+# Required permission per tool. Checked before the Discord call to produce a
+# clear message instead of a 403. Read-only tools are absent → no check.
 _REQUIRED_PERMISSIONS: dict[str, str] = {
     "create_category": "manage_channels",
     "create_text_channel": "manage_channels",
@@ -42,10 +42,10 @@ _REQUIRED_PERMISSIONS: dict[str, str] = {
 }
 
 
-# Pour le mode atomic batch : à chaque action create_* qu'on sait inverser
-# déterministiquement, on associe l'action de suppression et la traduction
-# des paramètres. Les actions sans entrée ici (create_invite, edit_*, etc.)
-# ne sont pas rollback-ables et seront ignorées par le rollback.
+# For the atomic batch mode: for each create_* action we know how to invert
+# deterministically, we associate the deletion action and the param translation.
+# Actions without an entry here (create_invite, edit_*, etc.) are not
+# rollback-able and will be ignored by the rollback.
 ROLLBACK_ACTIONS: dict[str, tuple[str, dict[str, str]]] = {
     "create_category": ("delete_channel", {"channel": "name"}),
     "create_text_channel": ("delete_channel", {"channel": "name"}),
@@ -60,11 +60,11 @@ ROLLBACK_ACTIONS: dict[str, tuple[str, dict[str, str]]] = {
 
 
 class ExecuteError(Exception):
-    """Erreur métier (permission manquante, Discord 403/404/HTTPException).
+    """Business error (missing permission, Discord 403/404/HTTPException).
 
-    Levée par execute(strict=True) pour permettre au batch coordinator de
-    distinguer succès et échec — le mode non-strict retourne le message
-    en string pour rester compatible avec la boucle agentic.
+    Raised by execute(strict=True) so the batch coordinator can distinguish
+    success from failure — the non-strict mode returns the message as a string
+    to stay compatible with the agentic loop.
     """
 
     def __init__(self, message: str) -> None:
@@ -86,14 +86,14 @@ class Executor:
         Wraps Discord API errors (Forbidden/NotFound/HTTPException) into
         readable messages and pre-checks bot permissions for mutating tools.
 
-        En mode strict=True, les erreurs Discord et permissions sont relevées
-        comme ExecuteError au lieu d'être retournées sous forme de string —
-        utilisé par _execute_batch pour comptabiliser correctement les échecs.
+        In strict=True mode, Discord and permission errors are raised as
+        ExecuteError instead of being returned as a string — used by
+        _execute_batch to count failures correctly.
         """
         required = _REQUIRED_PERMISSIONS.get(tool_name)
         if required is not None and guild.me is not None:
             if not getattr(guild.me.guild_permissions, required, False):
-                msg = f"Permission manquante : `{required}`. Le bot ne peut pas exécuter `{tool_name}`."
+                msg = f"Missing permission: `{required}`. The bot cannot execute `{tool_name}`."
                 if strict:
                     raise ExecuteError(msg)
                 return msg
@@ -102,19 +102,21 @@ class Executor:
             return await self._dispatch(tool_name, params, guild)
         except discord.Forbidden as e:
             logger.warning("Discord Forbidden on %s: %s", tool_name, e)
-            msg = f"Action refusée par Discord (permissions ou hiérarchie) : `{tool_name}`."
+            msg = f"Action refused by Discord (permissions or role hierarchy): `{tool_name}`."
             if strict:
                 raise ExecuteError(msg) from e
             return msg
         except discord.NotFound as e:
             logger.warning("Discord NotFound on %s: %s", tool_name, e)
-            msg = f"Entité introuvable (peut-être supprimée entre la preview et l'exécution) : `{tool_name}`."
+            msg = (
+                f"Entity not found (possibly deleted between preview and execution): `{tool_name}`."
+            )
             if strict:
                 raise ExecuteError(msg) from e
             return msg
         except discord.HTTPException as e:
             logger.exception("Discord HTTPException on %s", tool_name)
-            msg = f"Erreur Discord ({e.status}) sur `{tool_name}` : {e.text or e}"
+            msg = f"Discord error ({e.status}) on `{tool_name}`: {e.text or e}"
             if strict:
                 raise ExecuteError(msg) from e
             return msg
@@ -603,66 +605,66 @@ class Executor:
                 if member is None:
                     raise ValueError(f"Member not found: {params['user']!r}")
                 roles = [r.name for r in member.roles if r.name != "@everyone"]
-                return f"Roles of {params['user']}: {', '.join(roles) or 'aucun'}"
+                return f"Roles of {params['user']}: {', '.join(roles) or 'none'}"
 
             case "get_server_info":
                 return (
-                    f"Serveur: {guild.name}\n"
-                    f"Membres: {guild.member_count}\n"
-                    f"Vérification: {guild.verification_level}\n"
-                    f"Filtre contenu: {guild.explicit_content_filter}\n"
+                    f"Server: {guild.name}\n"
+                    f"Members: {guild.member_count}\n"
+                    f"Verification: {guild.verification_level}\n"
+                    f"Content filter: {guild.explicit_content_filter}\n"
                     f"Notifications: {guild.default_notifications}\n"
-                    f"Boost: niveau {guild.premium_tier} ({guild.premium_subscription_count} boosts)\n"
+                    f"Boost: tier {guild.premium_tier} ({guild.premium_subscription_count} boosts)\n"
                     f"Locale: {guild.preferred_locale}"
                 )
 
             case "list_invites":
                 invites = await guild.invites()
                 if not invites:
-                    return "Aucune invitation active."
+                    return "No active invites."
                 lines = [
                     f"- {i.code} → #{i.channel.name if i.channel else '?'} "
-                    f"({i.uses}/{i.max_uses or '∞'} utilisations)"
+                    f"({i.uses}/{i.max_uses or '∞'} uses)"
                     for i in invites
                 ]
-                return "Invitations:\n" + "\n".join(lines)
+                return "Invites:\n" + "\n".join(lines)
 
             case "list_webhooks":
                 webhooks = await guild.webhooks()
                 if not webhooks:
-                    return "Aucun webhook."
+                    return "No webhooks."
                 lines = [f"- {w.name} → #{w.channel.name if w.channel else '?'}" for w in webhooks]
                 return "Webhooks:\n" + "\n".join(lines)
 
             case "list_scheduled_events":
                 events = guild.scheduled_events
                 if not events:
-                    return "Aucun événement planifié."
+                    return "No scheduled events."
                 lines = [f"- {e.name} ({e.entity_type}) — {e.start_time}" for e in events]
-                return "Événements:\n" + "\n".join(lines)
+                return "Events:\n" + "\n".join(lines)
 
             case "check_bot_permissions":
                 me = guild.me
                 if me is None:
-                    return "Impossible de récupérer les permissions du bot (membership manquant)."
+                    return "Cannot read bot permissions (membership missing)."
                 perms = me.guild_permissions
-                # Liste unique des permissions requises sur l'ensemble des tools
+                # Deduplicated list of permissions required across all tools
                 required_perms = sorted(set(_REQUIRED_PERMISSIONS.values()))
                 granted = [p for p in required_perms if getattr(perms, p, False)]
                 missing = [p for p in required_perms if not getattr(perms, p, False)]
-                lines = [f"Permissions accordées : {', '.join(granted) or 'aucune'}"]
+                lines = [f"Granted permissions: {', '.join(granted) or 'none'}"]
                 if missing:
-                    lines.append(f"Permissions manquantes : {', '.join(missing)}")
+                    lines.append(f"Missing permissions: {', '.join(missing)}")
                 else:
-                    lines.append("Toutes les permissions requises sont présentes.")
+                    lines.append("All required permissions are present.")
                 return "\n".join(lines)
 
             case "list_automod_rules":
                 rules = await guild.fetch_auto_moderation_rules()
                 if not rules:
-                    return "Aucune règle AutoMod."
-                lines = [f"- {r.name} ({'activée' if r.enabled else 'désactivée'})" for r in rules]
-                return "Règles AutoMod:\n" + "\n".join(lines)
+                    return "No AutoMod rules."
+                lines = [f"- {r.name} ({'enabled' if r.enabled else 'disabled'})" for r in rules]
+                return "AutoMod rules:\n" + "\n".join(lines)
 
             case _:
                 raise NotImplementedError(f"No handler for tool: {tool_name!r}")

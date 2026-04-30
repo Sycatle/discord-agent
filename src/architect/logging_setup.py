@@ -6,8 +6,8 @@ import logging.handlers
 from pathlib import Path
 from typing import Any
 
-# Champs structurés autorisés via `extra={...}` — on les recopie tels quels
-# dans le JSON pour pouvoir filtrer/grepper en prod sans regex sur le message.
+# Structured fields allowed via `extra={...}` — copied verbatim to the JSON
+# output so we can filter/grep in production without regex on the message.
 _STRUCTURED_FIELDS = (
     "event",
     "tool_name",
@@ -41,8 +41,8 @@ class JsonFormatter(logging.Formatter):
 def setup_jsonl_handler(data_dir: Path) -> None:
     """Attach a 10MB rotating JSONL handler to the root logger.
 
-    Idempotent : s'il existe déjà un handler vers le même fichier on ne le
-    duplique pas (évite les doublons en cas de reload en dev).
+    Idempotent: if a handler already targets the same file we skip rather than
+    duplicate (avoids doubles on dev reloads).
     """
     data_dir.mkdir(parents=True, exist_ok=True)
     log_path = data_dir / "architect.jsonl"

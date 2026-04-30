@@ -191,7 +191,7 @@ async def test_unknown_tool_raises():
 
 
 def _extend_guild(guild):
-    """Étend le mock guild avec les méthodes/attributs nécessaires aux nouveaux tests."""
+    """Extend the mock guild with methods/attributes required by the new tests."""
     # Forum channel
     forum_ch = MagicMock()
     forum_ch.name = "annonces-forum"
@@ -310,12 +310,12 @@ async def test_edit_channel_rename():
     executor = Executor()
     result = await executor.execute(
         "edit_channel",
-        {"channel": "general", "name": "général", "slowmode": 5},
+        {"channel": "general", "name": "general", "slowmode": 5},
         guild,
     )
     edit_ch.edit.assert_called_once()
     call_kwargs = edit_ch.edit.call_args.kwargs
-    assert call_kwargs["name"] == "général"
+    assert call_kwargs["name"] == "general"
     assert call_kwargs["slowmode_delay"] == 5
     assert "general" in result
 
@@ -493,7 +493,7 @@ async def test_create_automod_rule_keyword():
             "name": "no-spam",
             "event_type": "message_send",
             "trigger_type": "keyword",
-            "keyword_filter": ["spam", "publicité"],
+            "keyword_filter": ["spam", "ads"],
             "actions": ["block_message"],
         },
         guild,
@@ -770,7 +770,7 @@ async def test_check_bot_permissions_lists_granted_and_missing():
     result = await executor.execute("check_bot_permissions", {}, guild)
     assert "manage_channels" in result
     assert "manage_webhooks" in result
-    assert "manquantes" in result.lower()
+    assert "missing" in result.lower()
 
 
 @pytest.mark.asyncio
@@ -800,4 +800,4 @@ async def test_non_strict_returns_error_string_on_missing_permission():
 
     executor = Executor()
     result = await executor.execute("create_category", {"name": "X"}, guild)
-    assert "Permission manquante" in result
+    assert "Missing permission" in result

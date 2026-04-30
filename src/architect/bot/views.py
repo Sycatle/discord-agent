@@ -33,39 +33,39 @@ class ConfirmView(discord.ui.View):
             return fut.result()
         return ConfirmResult.CANCELLED
 
-    @discord.ui.button(label="Confirmer", style=discord.ButtonStyle.success, emoji="✅")
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.success, emoji="✅")
     async def confirm(
         self, interaction: discord.Interaction, button: discord.ui.Button[Any]
     ) -> None:
         if not self._is_invoker(interaction):
             await interaction.response.send_message(
-                "Seul l'auteur peut utiliser ce bouton.", ephemeral=True
+                "Only the message author can use this button.", ephemeral=True
             )
             return
         await interaction.response.defer()
         self._get_future().set_result(ConfirmResult.CONFIRMED)
         self.stop()
 
-    @discord.ui.button(label="Annuler", style=discord.ButtonStyle.danger, emoji="❌")
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, emoji="❌")
     async def cancel(
         self, interaction: discord.Interaction, button: discord.ui.Button[Any]
     ) -> None:
         if not self._is_invoker(interaction):
             await interaction.response.send_message(
-                "Seul l'auteur peut utiliser ce bouton.", ephemeral=True
+                "Only the message author can use this button.", ephemeral=True
             )
             return
         await interaction.response.defer()
         self._get_future().set_result(ConfirmResult.CANCELLED)
         self.stop()
 
-    @discord.ui.button(label="Tout annuler", style=discord.ButtonStyle.danger, emoji="🛑")
+    @discord.ui.button(label="Cancel all", style=discord.ButtonStyle.danger, emoji="🛑")
     async def cancel_all(
         self, interaction: discord.Interaction, button: discord.ui.Button[Any]
     ) -> None:
         if not self._is_invoker(interaction):
             await interaction.response.send_message(
-                "Seul l'auteur peut utiliser ce bouton.", ephemeral=True
+                "Only the message author can use this button.", ephemeral=True
             )
             return
         await interaction.response.defer()
@@ -115,7 +115,7 @@ class PlanView(discord.ui.View):
 
         # Build summary line — group by domain so 27+ ActionTypes stay readable
         domain_buckets = {
-            "créations": (
+            "creations": (
                 "create_category",
                 "create_text_channel",
                 "create_voice_channel",
@@ -140,7 +140,7 @@ class PlanView(discord.ui.View):
                 "assign_role",
                 "remove_role",
             ),
-            "suppressions": (
+            "deletions": (
                 "delete_channel",
                 "delete_invite",
                 "delete_webhook",
@@ -160,8 +160,8 @@ class PlanView(discord.ui.View):
             if not any(t in types for types in domain_buckets.values())
         )
         if unknown:
-            count_parts.append(f"**{unknown}** autres")
-        summary = " · ".join(count_parts) if count_parts else "Aucune action"
+            count_parts.append(f"**{unknown}** other")
+        summary = " · ".join(count_parts) if count_parts else "No actions"
 
         embed = discord.Embed(
             title=f"📋 Plan — {self.title}",
@@ -178,10 +178,10 @@ class PlanView(discord.ui.View):
             name = params.get("name", params.get("channel", "?"))
             action_lines.append(f"• `{atype}`: {name}")
         if len(self.actions) > 10:
-            action_lines.append(f"… et {len(self.actions) - 10} autres actions")
+            action_lines.append(f"… and {len(self.actions) - 10} more actions")
 
         embed.add_field(name="Actions", value="\n".join(action_lines) or "—", inline=False)
-        embed.set_footer(text=f"{len(self.actions)} actions au total")
+        embed.set_footer(text=f"{len(self.actions)} actions total")
 
         # Check if we need to fallback to file
         # Rough length check: if more than 30 actions, offer file too
@@ -196,13 +196,13 @@ class PlanView(discord.ui.View):
 
         return embed, file_content
 
-    @discord.ui.button(label="Tout confirmer", style=discord.ButtonStyle.success, emoji="✅")
+    @discord.ui.button(label="Confirm all", style=discord.ButtonStyle.success, emoji="✅")
     async def confirm_all(
         self, interaction: discord.Interaction, button: discord.ui.Button[Any]
     ) -> None:
         if not self._is_invoker(interaction):
             await interaction.response.send_message(
-                "Seul l'auteur peut utiliser ce bouton.", ephemeral=True
+                "Only the message author can use this button.", ephemeral=True
             )
             return
         await interaction.response.defer()
@@ -210,40 +210,40 @@ class PlanView(discord.ui.View):
         self.stop()
 
     @discord.ui.button(
-        label="Atomic (rollback si erreur)", style=discord.ButtonStyle.primary, emoji="⚛"
+        label="Atomic (rollback on error)", style=discord.ButtonStyle.primary, emoji="⚛"
     )
     async def confirm_atomic(
         self, interaction: discord.Interaction, button: discord.ui.Button[Any]
     ) -> None:
         if not self._is_invoker(interaction):
             await interaction.response.send_message(
-                "Seul l'auteur peut utiliser ce bouton.", ephemeral=True
+                "Only the message author can use this button.", ephemeral=True
             )
             return
         await interaction.response.defer()
         self._get_future().set_result(PlanResult.CONFIRMED_ATOMIC)
         self.stop()
 
-    @discord.ui.button(label="Réviser", style=discord.ButtonStyle.secondary, emoji="🔍")
+    @discord.ui.button(label="Review", style=discord.ButtonStyle.secondary, emoji="🔍")
     async def review(
         self, interaction: discord.Interaction, button: discord.ui.Button[Any]
     ) -> None:
         if not self._is_invoker(interaction):
             await interaction.response.send_message(
-                "Seul l'auteur peut utiliser ce bouton.", ephemeral=True
+                "Only the message author can use this button.", ephemeral=True
             )
             return
         await interaction.response.defer()
         self._get_future().set_result(PlanResult.REVIEW)
         self.stop()
 
-    @discord.ui.button(label="Annuler", style=discord.ButtonStyle.danger, emoji="❌")
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, emoji="❌")
     async def cancel(
         self, interaction: discord.Interaction, button: discord.ui.Button[Any]
     ) -> None:
         if not self._is_invoker(interaction):
             await interaction.response.send_message(
-                "Seul l'auteur peut utiliser ce bouton.", ephemeral=True
+                "Only the message author can use this button.", ephemeral=True
             )
             return
         await interaction.response.defer()
@@ -279,13 +279,13 @@ class PlanReviewView(discord.ui.View):
             return fut.result()
         return PlanReviewResult.CANCELLED_ALL  # timeout = cancel all for safety
 
-    @discord.ui.button(label="Confirmer", style=discord.ButtonStyle.success, emoji="✅")
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.success, emoji="✅")
     async def confirm(
         self, interaction: discord.Interaction, button: discord.ui.Button[Any]
     ) -> None:
         if not self._is_invoker(interaction):
             await interaction.response.send_message(
-                "Seul l'auteur peut utiliser ce bouton.", ephemeral=True
+                "Only the message author can use this button.", ephemeral=True
             )
             return
         await interaction.response.defer()
@@ -296,22 +296,20 @@ class PlanReviewView(discord.ui.View):
     async def skip(self, interaction: discord.Interaction, button: discord.ui.Button[Any]) -> None:
         if not self._is_invoker(interaction):
             await interaction.response.send_message(
-                "Seul l'auteur peut utiliser ce bouton.", ephemeral=True
+                "Only the message author can use this button.", ephemeral=True
             )
             return
         await interaction.response.defer()
         self._get_future().set_result(PlanReviewResult.SKIPPED)
         self.stop()
 
-    @discord.ui.button(
-        label="Auto-confirmer le reste", style=discord.ButtonStyle.primary, emoji="⏩"
-    )
+    @discord.ui.button(label="Auto-confirm rest", style=discord.ButtonStyle.primary, emoji="⏩")
     async def auto_rest(
         self, interaction: discord.Interaction, button: discord.ui.Button[Any]
     ) -> None:
         if not self._is_invoker(interaction):
             await interaction.response.send_message(
-                "Seul l'auteur peut utiliser ce bouton.", ephemeral=True
+                "Only the message author can use this button.", ephemeral=True
             )
             return
         await interaction.response.defer()
@@ -324,7 +322,7 @@ class PlanReviewView(discord.ui.View):
     ) -> None:
         if not self._is_invoker(interaction):
             await interaction.response.send_message(
-                "Seul l'auteur peut utiliser ce bouton.", ephemeral=True
+                "Only the message author can use this button.", ephemeral=True
             )
             return
         await interaction.response.defer()

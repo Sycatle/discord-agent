@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 MAX_STEPS = 10
 
-_EMBED_LIMIT = 4000  # marge de 96 chars pour le markup Discord
+_EMBED_LIMIT = 4000  # 96-char margin for Discord markup
 
 
 def _make_embed(
@@ -39,9 +39,9 @@ _MAX_ERRORS_DISPLAY = 20
 
 
 def _chunk_text(text: str, limit: int = _EMBED_LIMIT) -> list[str]:
-    """Découpe text en chunks <= limit. Stratégie : paragraphes → lignes → coupe dure.
+    """Split text into chunks <= limit. Strategy: paragraphs → lines → hard cut.
 
-    Retourne [""] pour une chaîne vide (intentionnel : permet l'itération sans branche).
+    Returns [""] for empty input (intentional: lets callers iterate without branching).
     """
     if len(text) <= limit:
         return [text]
@@ -135,15 +135,15 @@ class BotEvents(commands.Cog):
             prompt = prompt.replace(f"<@{self.bot.user.id}>", "").strip()
 
         if not prompt:
-            await message.reply("Quelle est ta demande ?")
+            await message.reply("What is your request?")
             return
 
         guild = message.guild
         if guild is None:
-            await message.reply("Ce bot fonctionne uniquement dans un serveur Discord.")
+            await message.reply("This bot only works inside a Discord server.")
             return
         if guild.id != settings.discord_guild_id:
-            await message.reply("Ce bot n'est pas configuré pour ce serveur.")
+            await message.reply("This bot is not configured for this server.")
             return
 
         channel_id = message.channel.id
@@ -161,7 +161,7 @@ class BotEvents(commands.Cog):
         try:
             thread = await message.create_thread(name=thread_name, auto_archive_duration=60)
         except discord.Forbidden:
-            thread = message.channel  # fallback sans thread
+            thread = message.channel  # fallback without a thread
 
         status_msg = await thread.send(
             embed=_make_embed("Analyse en cours...", color=discord.Color.orange())
@@ -174,9 +174,7 @@ class BotEvents(commands.Cog):
         except Exception:
             logger.exception("agent loop failed for channel %s", channel_id)
             await status_msg.edit(
-                embed=_make_embed(
-                    "Une erreur inattendue s'est produite.", color=discord.Color.red()
-                )
+                embed=_make_embed("An unexpected error occurred.", color=discord.Color.red())
             )
 
     async def _run_agent_loop(
@@ -218,7 +216,9 @@ class BotEvents(commands.Cog):
                 elif isinstance(event, ClarificationEvent):
                     await status_msg.edit(
                         embed=_make_embed(
-                            event.question, title="Précision requise", color=discord.Color.yellow()
+                            event.question,
+                            title="Clarification needed",
+                            color=discord.Color.yellow(),
                         )
                     )
                     self._history.append(channel_id, "assistant", event.question)
@@ -267,7 +267,7 @@ class BotEvents(commands.Cog):
                     if confirm_result == ConfirmResult.CANCELLED_ALL:
                         await thread.send(
                             embed=_make_embed(
-                                "Toutes les actions ont été annulées.", color=discord.Color.red()
+                                "All actions were cancelled.", color=discord.Color.red()
                             )
                         )
                         tool_results.append((event.tool_use_id, "cancelled by user"))
@@ -300,7 +300,7 @@ class BotEvents(commands.Cog):
                     )
                     await status_msg.edit(
                         embed=_make_embed(
-                            "Plan généré, en attente de validation...", color=discord.Color.orange()
+                            "Plan generated, awaiting validation...", color=discord.Color.orange()
                         )
                     )
                     plan_view = PlanView(
@@ -321,7 +321,7 @@ class BotEvents(commands.Cog):
                     plan_result = await plan_view.wait_result()
 
                     if plan_result == PlanResult.CANCELLED:
-                        result_str = "Plan annulé par l'utilisateur."
+                        result_str = "Plan cancelled by user."
                         await status_msg.edit(
                             embed=_make_embed(result_str, color=discord.Color.red())
                         )
@@ -330,13 +330,15 @@ class BotEvents(commands.Cog):
                             event.actions, guild, message.author.id, message, thread
                         )
                         result_str = (
-                            f"Révision terminée : {success}/{len(event.actions)} actions exécutées."
+                            f"Review complete: {success}/{len(event.actions)} actions executed."
                         )
                         if errors:
                             displayed_errors = errors[:_MAX_ERRORS_DISPLAY]
                             error_block = "\n".join(f"• {e}" for e in displayed_errors)
                             if len(errors) > _MAX_ERRORS_DISPLAY:
-                                error_block += f"\n… et {len(errors) - _MAX_ERRORS_DISPLAY} erreurs supplémentaires"
+                                error_block += (
+                                    f"\n… et {len(errors) - _MAX_ERRORS_DISPLAY} more errors"
+                                )
                             result_str += f"\nErreurs :\n{error_block}"
                         color = discord.Color.green() if not errors else discord.Color.orange()
                         await status_msg.edit(embed=_make_embed(result_str, color=color))
@@ -344,7 +346,7 @@ class BotEvents(commands.Cog):
                         atomic = plan_result == PlanResult.CONFIRMED_ATOMIC
                         progress_msg = await thread.send(
                             embed=_make_embed(
-                                f"Exécution en cours... 0/{len(event.actions)}",
+                                f"Execution in progress... 0/{len(event.actions)}",
                                 color=discord.Color.orange(),
                             )
                         )
@@ -367,16 +369,16 @@ class BotEvents(commands.Cog):
                                 "errors": len(errors),
                             },
                         )
-                        result_str = f"{success}/{len(event.actions)} actions exécutées."
+                        result_str = f"{success}/{len(event.actions)} actions executed."
                         if rolled_back:
-                            result_str += (
-                                f"\n{rolled_back} action(s) annulée(s) par rollback atomic."
-                            )
+                            result_str += f"\n{rolled_back} action(s) reverted by atomic rollback."
                         if errors:
                             displayed_errors = errors[:_MAX_ERRORS_DISPLAY]
                             error_block = "\n".join(f"• {e}" for e in displayed_errors)
                             if len(errors) > _MAX_ERRORS_DISPLAY:
-                                error_block += f"\n… et {len(errors) - _MAX_ERRORS_DISPLAY} erreurs supplémentaires"
+                                error_block += (
+                                    f"\n… et {len(errors) - _MAX_ERRORS_DISPLAY} more errors"
+                                )
                             result_str += f"\nErreurs :\n{error_block}"
                         color = discord.Color.green() if not errors else discord.Color.orange()
                         await status_msg.edit(embed=_make_embed(result_str, color=color))
@@ -414,16 +416,16 @@ class BotEvents(commands.Cog):
         """
         Execute all actions sequentially. Updates progress_msg embed every 5 actions or on errors.
 
-        En mode atomic=True, à la première erreur les créations déjà effectuées
-        sont annulées dans l'ordre inverse (delete_channel, delete_role, etc.) —
-        les actions sans inverse déterministique (edit_*, delete_*, create_invite)
-        sont laissées telles quelles.
+        In atomic=True mode, on the first error the already-performed creations
+        are reverted in reverse order (delete_channel, delete_role, etc.) —
+        actions without a deterministic inverse (edit_*, delete_*, create_invite)
+        are left as-is.
 
         Returns (success_count, errors, rollback_count).
         """
         success_count = 0
         errors: list[str] = []
-        completed: list[dict] = []  # actions réussies, dans l'ordre, pour rollback
+        completed: list[dict] = []  # successful actions, in order, for rollback
         total = len(actions)
         stopped_early = False
 
@@ -453,7 +455,7 @@ class BotEvents(commands.Cog):
 
             # Update progress every 5 actions or on last action
             if i % 5 == 0 or i == total:
-                status = f"Exécution en cours... {i}/{total}"
+                status = f"Execution in progress... {i}/{total}"
                 if errors:
                     status += f"\n{len(errors)} erreur(s)"
                 embed = discord.Embed(description=status, color=discord.Color.orange())
@@ -478,7 +480,7 @@ class BotEvents(commands.Cog):
         return success_count - rollback_count, errors, rollback_count
 
     async def _rollback(self, completed: list[dict], guild: discord.Guild) -> int:
-        """Annule les créations en ordre inverse. Retourne le nombre annulé."""
+        """Revert creations in reverse order. Return the count of reverted actions."""
         count = 0
         for action in reversed(completed):
             action_type = action.get("type", "")
@@ -533,7 +535,7 @@ class BotEvents(commands.Cog):
             result = await view.wait_result()
 
             if result == PlanReviewResult.CANCELLED_ALL:
-                await dest.send(embed=_make_embed("Révision annulée.", color=discord.Color.red()))
+                await dest.send(embed=_make_embed("Review cancelled.", color=discord.Color.red()))
                 break
             elif result == PlanReviewResult.SKIPPED:
                 continue
@@ -542,7 +544,7 @@ class BotEvents(commands.Cog):
                 remaining = actions[i:]
                 progress_msg = await dest.send(
                     embed=_make_embed(
-                        f"Exécution en cours... 0/{len(remaining)}", color=discord.Color.orange()
+                        f"Execution in progress... 0/{len(remaining)}", color=discord.Color.orange()
                     )
                 )
                 batch_success, batch_errors, _ = await self._execute_batch(

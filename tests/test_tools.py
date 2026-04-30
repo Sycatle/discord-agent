@@ -77,8 +77,8 @@ def test_mutation_tools_not_in_readonly_or_meta():
     tool_names = {t["name"] for t in get_tools()}
     for name in ALL_MUTATION_TOOLS:
         assert name in tool_names, f"{name} absent de get_tools()"
-        assert name not in READONLY_TOOLS, f"{name} ne doit pas être dans READONLY_TOOLS"
-        assert name not in META_TOOLS, f"{name} ne doit pas être dans META_TOOLS"
+        assert name not in READONLY_TOOLS, f"{name} must not be in READONLY_TOOLS"
+        assert name not in META_TOOLS, f"{name} must not be in META_TOOLS"
 
 
 def test_mutation_tools_frozenset_complete():

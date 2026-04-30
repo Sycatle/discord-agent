@@ -43,4 +43,4 @@ class ArchitectBot(commands.Bot):
         print(f"Bot connected: {self.user} (guild_id={settings.discord_guild_id})")
 
     async def on_error(self, event_method: str, *args, **kwargs) -> None:
-        logger.exception("Erreur non interceptée dans l'event '%s'", event_method)
+        logger.exception("Uncaught error in event '%s'", event_method)

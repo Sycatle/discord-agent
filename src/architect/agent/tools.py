@@ -62,25 +62,25 @@ def get_tools() -> list[dict]:
         # ── Existing ──────────────────────────────────────────────────────────
         {
             "name": "create_category",
-            "description": "Crée une catégorie Discord dans le guild.",
+            "description": "Create a Discord category in the guild.",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "name": {"type": "string", "description": "Nom de la catégorie"},
+                    "name": {"type": "string", "description": "Category name"},
                 },
                 "required": ["name"],
             },
         },
         {
             "name": "create_text_channel",
-            "description": "Crée un channel texte, optionnellement dans une catégorie.",
+            "description": "Create a text channel, optionally inside a category.",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "name": {"type": "string", "description": "Nom du channel"},
+                    "name": {"type": "string", "description": "Channel name"},
                     "category": {
                         "type": "string",
-                        "description": "Nom de la catégorie parente (optionnel)",
+                        "description": "Category name parente (optionnel)",
                     },
                 },
                 "required": ["name"],
@@ -88,14 +88,14 @@ def get_tools() -> list[dict]:
         },
         {
             "name": "create_voice_channel",
-            "description": "Crée un channel vocal, optionnellement dans une catégorie.",
+            "description": "Create a voice channel, optionally inside a category.",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "name": {"type": "string", "description": "Nom du channel vocal"},
+                    "name": {"type": "string", "description": "Voice channel name"},
                     "category": {
                         "type": "string",
-                        "description": "Nom de la catégorie parente (optionnel)",
+                        "description": "Category name parente (optionnel)",
                     },
                 },
                 "required": ["name"],
@@ -103,18 +103,18 @@ def get_tools() -> list[dict]:
         },
         {
             "name": "create_role",
-            "description": "Crée un rôle Discord.",
+            "description": "Create a Discord role.",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "name": {"type": "string", "description": "Nom du rôle"},
+                    "name": {"type": "string", "description": "Role name"},
                     "color": {
                         "type": "string",
-                        "description": "Couleur hex du rôle, ex: '#3498DB' (optionnel)",
+                        "description": "Role hex color, e.g. '#3498DB' (optional)",
                     },
                     "mentionable": {
                         "type": "boolean",
-                        "description": "Si le rôle est mentionnable (optionnel)",
+                        "description": "Whether the role is mentionable (optional)",
                     },
                 },
                 "required": ["name"],
@@ -122,21 +122,21 @@ def get_tools() -> list[dict]:
         },
         {
             "name": "set_channel_permissions",
-            "description": "Définit les permissions d'un channel pour un rôle.",
+            "description": "Set channel permissions for a role.",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "channel": {"type": "string", "description": "Nom du channel"},
-                    "role": {"type": "string", "description": "Nom du rôle"},
+                    "channel": {"type": "string", "description": "Channel name"},
+                    "role": {"type": "string", "description": "Role name"},
                     "allow": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Liste des permissions à autoriser (optionnel)",
+                        "description": "Permissions to allow (optional)",
                     },
                     "deny": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Liste des permissions à refuser (optionnel)",
+                        "description": "Permissions to deny (optional)",
                     },
                 },
                 "required": ["channel", "role"],
@@ -145,39 +145,39 @@ def get_tools() -> list[dict]:
         # ── Domain 1 — Channels ───────────────────────────────────────────────
         {
             "name": "create_forum_channel",
-            "description": "Crée un channel forum Discord (threads avec tags).",
+            "description": "Create a Discord forum channel (threads with tags).",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "name": {"type": "string", "description": "Nom du forum"},
-                    "category": {"type": "string", "description": "Catégorie parente (optionnel)"},
+                    "name": {"type": "string", "description": "Forum name"},
+                    "category": {"type": "string", "description": "Parent category (optional)"},
                     "topic": {
                         "type": "string",
-                        "description": "Description du forum, max 4096 chars (optionnel)",
+                        "description": "Forum description, max 4096 chars (optional)",
                     },
                     "slowmode": {
                         "type": "integer",
-                        "description": "Délai entre messages en secondes, 0-21600 (optionnel)",
+                        "description": "Per-user message delay in seconds, 0-21600 (optional)",
                     },
-                    "nsfw": {"type": "boolean", "description": "Contenu adulte (optionnel)"},
+                    "nsfw": {"type": "boolean", "description": "Adult content flag (optional)"},
                     "available_tags": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Noms des tags disponibles, max 20 (optionnel)",
+                        "description": "Available tag names, max 20 (optional)",
                     },
                     "require_tag": {
                         "type": "boolean",
-                        "description": "Obliger un tag sur chaque thread (optionnel)",
+                        "description": "Require a tag on each thread (optional)",
                     },
                     "default_sort_order": {
                         "type": "string",
                         "enum": ["latest_activity", "creation_date"],
-                        "description": "Ordre de tri des threads (optionnel)",
+                        "description": "Thread sort order (optional)",
                     },
                     "default_forum_layout": {
                         "type": "string",
                         "enum": ["list", "gallery"],
-                        "description": "Vue par défaut du forum (optionnel)",
+                        "description": "Default forum layout (optional)",
                     },
                 },
                 "required": ["name"],
@@ -185,27 +185,27 @@ def get_tools() -> list[dict]:
         },
         {
             "name": "create_stage_channel",
-            "description": "Crée un channel Stage (conférences/podcasts).",
+            "description": "Create a Stage channel (conferences/podcasts).",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "name": {"type": "string", "description": "Nom du stage"},
-                    "category": {"type": "string", "description": "Catégorie parente (optionnel)"},
+                    "name": {"type": "string", "description": "Stage name"},
+                    "category": {"type": "string", "description": "Parent category (optional)"},
                     "bitrate": {
                         "type": "integer",
-                        "description": "Qualité audio en bps (optionnel)",
+                        "description": "Audio quality in bps (optional)",
                     },
                     "user_limit": {
                         "type": "integer",
-                        "description": "Limite d'utilisateurs 0-10000 (optionnel)",
+                        "description": "User limit 0-10000 (optional)",
                     },
                     "rtc_region": {
                         "type": "string",
-                        "description": "Région vocale override, null = auto (optionnel)",
+                        "description": "Voice region override, null = auto (optional)",
                     },
                     "position": {
                         "type": "integer",
-                        "description": "Position dans la liste (optionnel)",
+                        "description": "Position in the list (optional)",
                     },
                 },
                 "required": ["name"],
@@ -213,50 +213,50 @@ def get_tools() -> list[dict]:
         },
         {
             "name": "edit_channel",
-            "description": "Modifie un channel ou une catégorie existant (renommer, topic, slowmode, nsfw, position, bitrate, etc.).",
+            "description": "Edit an existing channel or category (rename, topic, slowmode, nsfw, position, bitrate, etc.).",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "channel": {"type": "string", "description": "Nom ou ID du channel"},
-                    "name": {"type": "string", "description": "Nouveau nom (optionnel)"},
+                    "channel": {"type": "string", "description": "Channel name or ID"},
+                    "name": {"type": "string", "description": "New name (optional)"},
                     "topic": {
                         "type": "string",
-                        "description": "Topic du channel, max 1024 chars (optionnel)",
+                        "description": "Channel topic, max 1024 chars (optional)",
                     },
                     "slowmode": {
                         "type": "integer",
-                        "description": "Délai slowmode en secondes, 0-21600 (optionnel)",
+                        "description": "Slowmode delay in seconds, 0-21600 (optional)",
                     },
-                    "nsfw": {"type": "boolean", "description": "Contenu adulte (optionnel)"},
+                    "nsfw": {"type": "boolean", "description": "Adult content flag (optional)"},
                     "position": {
                         "type": "integer",
-                        "description": "Position dans la liste (optionnel)",
+                        "description": "Position in the list (optional)",
                     },
                     "bitrate": {
                         "type": "integer",
-                        "description": "Qualité audio en bps, voice/stage uniquement (optionnel)",
+                        "description": "Audio quality in bps, voice/stage only (optional)",
                     },
                     "user_limit": {
                         "type": "integer",
-                        "description": "Limite membres, voice: 0-99 (optionnel)",
+                        "description": "Member limit, voice: 0-99 (optional)",
                     },
                     "parent_id": {
                         "type": "string",
-                        "description": "Déplacer vers cette catégorie (nom ou ID) (optionnel)",
+                        "description": "Move to this category (name or ID) (optional)",
                     },
                     "rtc_region": {
                         "type": "string",
-                        "description": "Région vocale override (optionnel)",
+                        "description": "Voice region override (optional)",
                     },
                     "video_quality_mode": {
                         "type": "string",
                         "enum": ["auto", "full"],
-                        "description": "Qualité vidéo voice/stage (optionnel)",
+                        "description": "Voice/stage video quality (optional)",
                     },
                     "default_auto_archive_duration": {
                         "type": "integer",
                         "enum": [60, 1440, 4320, 10080],
-                        "description": "Durée d'archivage des threads en minutes (optionnel)",
+                        "description": "Thread auto-archive duration in minutes (optional)",
                     },
                 },
                 "required": ["channel"],
@@ -264,17 +264,17 @@ def get_tools() -> list[dict]:
         },
         {
             "name": "delete_channel",
-            "description": "Supprime définitivement un channel ou une catégorie. IRRÉVERSIBLE.",
+            "description": "Permanently delete a channel or category. IRREVERSIBLE.",
             "input_schema": {
                 "type": "object",
                 "properties": {
                     "channel": {
                         "type": "string",
-                        "description": "Nom ou ID du channel à supprimer",
+                        "description": "Channel name or ID to delete",
                     },
                     "reason": {
                         "type": "string",
-                        "description": "Raison de la suppression (optionnel)",
+                        "description": "Deletion reason (optional)",
                     },
                 },
                 "required": ["channel"],
@@ -282,22 +282,22 @@ def get_tools() -> list[dict]:
         },
         {
             "name": "create_invite",
-            "description": "Crée un lien d'invitation pour un channel.",
+            "description": "Create an invite link for a channel.",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "channel": {"type": "string", "description": "Nom ou ID du channel"},
+                    "channel": {"type": "string", "description": "Channel name or ID"},
                     "max_age": {
                         "type": "integer",
-                        "description": "Durée de validité en secondes, 0 = permanent, max 604800 (optionnel)",
+                        "description": "Validity in seconds, 0 = permanent, max 604800 (optional)",
                     },
                     "max_uses": {
                         "type": "integer",
-                        "description": "Nombre max d'utilisations, 0 = illimité, max 100 (optionnel)",
+                        "description": "Max uses, 0 = unlimited, max 100 (optional)",
                     },
                     "temporary": {
                         "type": "boolean",
-                        "description": "Kicker si aucun rôle assigné (optionnel)",
+                        "description": "Kick if no role assigned (optional)",
                     },
                 },
                 "required": ["channel"],
@@ -305,13 +305,13 @@ def get_tools() -> list[dict]:
         },
         {
             "name": "delete_invite",
-            "description": "Révoque un lien d'invitation par son code.",
+            "description": "Revoke an invite link by its code.",
             "input_schema": {
                 "type": "object",
                 "properties": {
                     "code": {
                         "type": "string",
-                        "description": "Code de l'invitation (ex: 'xKy3h2')",
+                        "description": "Invite code (e.g. 'xKy3h2')",
                     },
                 },
                 "required": ["code"],
@@ -319,27 +319,27 @@ def get_tools() -> list[dict]:
         },
         {
             "name": "create_webhook",
-            "description": "Crée un webhook entrant sur un channel.",
+            "description": "Create an incoming webhook on a channel.",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "channel": {"type": "string", "description": "Nom ou ID du channel"},
-                    "name": {"type": "string", "description": "Nom du webhook"},
+                    "channel": {"type": "string", "description": "Channel name or ID"},
+                    "name": {"type": "string", "description": "Webhook name"},
                 },
                 "required": ["channel", "name"],
             },
         },
         {
             "name": "edit_webhook",
-            "description": "Renomme un webhook ou le déplace vers un autre channel.",
+            "description": "Rename a webhook or move it to another channel.",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "webhook": {"type": "string", "description": "Nom ou ID du webhook"},
-                    "name": {"type": "string", "description": "Nouveau nom (optionnel)"},
+                    "webhook": {"type": "string", "description": "Webhook name or ID"},
+                    "name": {"type": "string", "description": "New name (optional)"},
                     "channel": {
                         "type": "string",
-                        "description": "Déplacer vers ce channel (nom ou ID) (optionnel)",
+                        "description": "Move to this channel (name or ID) (optional)",
                     },
                 },
                 "required": ["webhook"],
@@ -347,11 +347,11 @@ def get_tools() -> list[dict]:
         },
         {
             "name": "delete_webhook",
-            "description": "Supprime un webhook.",
+            "description": "Delete a webhook.",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "webhook": {"type": "string", "description": "Nom ou ID du webhook"},
+                    "webhook": {"type": "string", "description": "Webhook name or ID"},
                 },
                 "required": ["webhook"],
             },
@@ -359,20 +359,20 @@ def get_tools() -> list[dict]:
         # ── Domain 2 — Roles ──────────────────────────────────────────────────
         {
             "name": "edit_role",
-            "description": "Modifie un rôle existant (nom, couleur, hoist, mentionnable). Interdit sur @everyone.",
+            "description": "Edit an existing role (name, color, hoist, mentionable). Forbidden on @everyone.",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "role": {"type": "string", "description": "Nom ou ID du rôle"},
-                    "name": {"type": "string", "description": "Nouveau nom (optionnel)"},
-                    "color": {"type": "string", "description": "Couleur hex '#RRGGBB' (optionnel)"},
+                    "role": {"type": "string", "description": "Role name or ID"},
+                    "name": {"type": "string", "description": "New name (optional)"},
+                    "color": {"type": "string", "description": "Hex color '#RRGGBB' (optional)"},
                     "hoist": {
                         "type": "boolean",
-                        "description": "Afficher séparément dans la liste membres (optionnel)",
+                        "description": "Display separately in the member list (optional)",
                     },
                     "mentionable": {
                         "type": "boolean",
-                        "description": "Permettre les @mentions (optionnel)",
+                        "description": "Allow @mentions (optional)",
                     },
                 },
                 "required": ["role"],
@@ -380,36 +380,36 @@ def get_tools() -> list[dict]:
         },
         {
             "name": "delete_role",
-            "description": "Supprime un rôle. IRRÉVERSIBLE. Interdit sur @everyone.",
+            "description": "Delete a role. IRREVERSIBLE. Forbidden on @everyone.",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "role": {"type": "string", "description": "Nom ou ID du rôle"},
-                    "reason": {"type": "string", "description": "Raison (optionnel)"},
+                    "role": {"type": "string", "description": "Role name or ID"},
+                    "reason": {"type": "string", "description": "Reason (optional)"},
                 },
                 "required": ["role"],
             },
         },
         {
             "name": "assign_role",
-            "description": "Attribue un rôle à un membre (via @mention ou user_id).",
+            "description": "Assign a role to a member (via @mention or user_id).",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "user": {"type": "string", "description": "@mention ou user_id numérique"},
-                    "role": {"type": "string", "description": "Nom ou ID du rôle"},
+                    "user": {"type": "string", "description": "@mention or numeric user_id"},
+                    "role": {"type": "string", "description": "Role name or ID"},
                 },
                 "required": ["user", "role"],
             },
         },
         {
             "name": "remove_role",
-            "description": "Retire un rôle d'un membre.",
+            "description": "Remove a role from a member.",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "user": {"type": "string", "description": "@mention ou user_id numérique"},
-                    "role": {"type": "string", "description": "Nom ou ID du rôle"},
+                    "user": {"type": "string", "description": "@mention or numeric user_id"},
+                    "role": {"type": "string", "description": "Role name or ID"},
                 },
                 "required": ["user", "role"],
             },
@@ -417,11 +417,11 @@ def get_tools() -> list[dict]:
         # ── Domain 3 — Members ────────────────────────────────────────────────
         {
             "name": "edit_member",
-            "description": "Modifie un membre : surnom, mute/sourd serveur, timeout, déplacer vers un vocal.",
+            "description": "Edit a member: nickname, server mute/deafen, timeout, move to a voice channel.",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "user": {"type": "string", "description": "@mention ou user_id numérique"},
+                    "user": {"type": "string", "description": "@mention or numeric user_id"},
                     "nick": {
                         "type": "string",
                         "description": "Nouveau surnom, null pour reset (optionnel)",
@@ -433,11 +433,11 @@ def get_tools() -> list[dict]:
                     },
                     "timeout_until": {
                         "type": "string",
-                        "description": "ISO8601 datetime UTC jusqu'où le timeout dure, null pour supprimer (optionnel)",
+                        "description": "ISO8601 UTC datetime until the timeout lasts, null to remove (optional)",
                     },
                     "move_to_channel": {
                         "type": "string",
-                        "description": "Nom ou ID d'un channel vocal pour déplacer le membre (optionnel)",
+                        "description": "Voice channel name or ID to move the member to (optional)",
                     },
                 },
                 "required": ["user"],
@@ -446,23 +446,23 @@ def get_tools() -> list[dict]:
         # ── Domain 4 — Scheduled Events ───────────────────────────────────────
         {
             "name": "create_scheduled_event",
-            "description": "Crée un événement planifié Discord (vocal, scène, ou externe).",
+            "description": "Create a Discord scheduled event (voice, stage, or external).",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "name": {"type": "string", "description": "Titre de l'événement"},
+                    "name": {"type": "string", "description": "Event title"},
                     "start_time": {
                         "type": "string",
-                        "description": "Début ISO8601 UTC, ex: '2026-05-01T18:00:00Z'",
+                        "description": "ISO8601 UTC start, e.g. '2026-05-01T18:00:00Z'",
                     },
                     "entity_type": {
                         "type": "string",
                         "enum": ["voice", "stage", "external"],
-                        "description": "Type : 'voice' (channel vocal), 'stage' (scène), 'external' (lieu physique)",
+                        "description": "Type: 'voice' (voice channel), 'stage' (stage), 'external' (physical location)",
                     },
                     "channel": {
                         "type": "string",
-                        "description": "Nom ou ID du channel vocal/scène (requis pour voice/stage)",
+                        "description": "Voice/stage channel name or ID (required for voice/stage)",
                     },
                     "end_time": {
                         "type": "string",
@@ -474,7 +474,7 @@ def get_tools() -> list[dict]:
                     },
                     "description": {
                         "type": "string",
-                        "description": "Description de l'événement (optionnel)",
+                        "description": "Event description (optional)",
                     },
                 },
                 "required": ["name", "start_time", "entity_type"],
@@ -482,15 +482,15 @@ def get_tools() -> list[dict]:
         },
         {
             "name": "edit_scheduled_event",
-            "description": "Modifie un événement planifié ou change son statut.",
+            "description": "Edit a scheduled event or change its status.",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "event": {"type": "string", "description": "Nom ou ID de l'événement"},
+                    "event": {"type": "string", "description": "Event name or ID"},
                     "name": {"type": "string", "description": "Nouveau titre (optionnel)"},
                     "start_time": {
                         "type": "string",
-                        "description": "Nouvelle heure de début ISO8601 (optionnel)",
+                        "description": "New ISO8601 start time (optional)",
                     },
                     "end_time": {
                         "type": "string",
@@ -511,11 +511,11 @@ def get_tools() -> list[dict]:
         },
         {
             "name": "delete_scheduled_event",
-            "description": "Supprime un événement planifié.",
+            "description": "Delete a scheduled event.",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "event": {"type": "string", "description": "Nom ou ID de l'événement"},
+                    "event": {"type": "string", "description": "Event name or ID"},
                 },
                 "required": ["event"],
             },
@@ -523,20 +523,20 @@ def get_tools() -> list[dict]:
         # ── Domain 5 — AutoMod ────────────────────────────────────────────────
         {
             "name": "create_automod_rule",
-            "description": "Crée une règle AutoMod (filtre mots-clés, spam, mentions excessives).",
+            "description": "Create an AutoMod rule (keyword filter, spam, excessive mentions).",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "name": {"type": "string", "description": "Nom de la règle"},
+                    "name": {"type": "string", "description": "Rule name"},
                     "event_type": {
                         "type": "string",
                         "enum": ["message_send", "member_update"],
-                        "description": "Événement surveillé",
+                        "description": "Watched event",
                     },
                     "trigger_type": {
                         "type": "string",
                         "enum": ["keyword", "spam", "keyword_preset", "mention_spam"],
-                        "description": "Type de déclencheur",
+                        "description": "Trigger type",
                     },
                     "actions": {
                         "type": "array",
@@ -546,7 +546,7 @@ def get_tools() -> list[dict]:
                     "keyword_filter": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Mots-clés à bloquer pour trigger 'keyword' (optionnel)",
+                        "description": "Keywords to block for the 'keyword' trigger (optional)",
                     },
                     "regex_patterns": {
                         "type": "array",
@@ -556,7 +556,7 @@ def get_tools() -> list[dict]:
                     "allow_list": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Mots exemptés (optionnel)",
+                        "description": "Allow-listed words (optional)",
                     },
                     "presets": {
                         "type": "array",
@@ -564,7 +564,7 @@ def get_tools() -> list[dict]:
                             "type": "string",
                             "enum": ["profanity", "sexual_content", "slurs"],
                         },
-                        "description": "Presets prédéfinis pour trigger 'keyword_preset' (optionnel)",
+                        "description": "Built-in presets for the 'keyword_preset' trigger (optional)",
                     },
                     "mention_limit": {
                         "type": "integer",
@@ -573,16 +573,16 @@ def get_tools() -> list[dict]:
                     "exempt_roles": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Rôles exemptés (noms ou IDs), max 20 (optionnel)",
+                        "description": "Exempt roles (names or IDs), max 20 (optional)",
                     },
                     "exempt_channels": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Channels exemptés (noms ou IDs), max 50 (optionnel)",
+                        "description": "Exempt channels (names or IDs), max 50 (optional)",
                     },
                     "enabled": {
                         "type": "boolean",
-                        "description": "Activer la règle (défaut false) (optionnel)",
+                        "description": "Enable the rule (default false) (optional)",
                     },
                 },
                 "required": ["name", "event_type", "trigger_type", "actions"],
@@ -590,17 +590,17 @@ def get_tools() -> list[dict]:
         },
         {
             "name": "edit_automod_rule",
-            "description": "Modifie une règle AutoMod existante.",
+            "description": "Edit an existing AutoMod rule.",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "rule": {"type": "string", "description": "Nom ou ID de la règle"},
-                    "name": {"type": "string", "description": "Nouveau nom (optionnel)"},
-                    "enabled": {"type": "boolean", "description": "Activer/désactiver (optionnel)"},
+                    "rule": {"type": "string", "description": "Rule name or ID"},
+                    "name": {"type": "string", "description": "New name (optional)"},
+                    "enabled": {"type": "boolean", "description": "Enable/disable (optional)"},
                     "keyword_filter": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Nouveaux mots-clés (optionnel)",
+                        "description": "New keywords (optional)",
                     },
                     "regex_patterns": {
                         "type": "array",
@@ -620,12 +620,12 @@ def get_tools() -> list[dict]:
                     "exempt_roles": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Rôles exemptés (optionnel)",
+                        "description": "Exempt roles (optional)",
                     },
                     "exempt_channels": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Channels exemptés (optionnel)",
+                        "description": "Exempt channels (optional)",
                     },
                 },
                 "required": ["rule"],
@@ -633,11 +633,11 @@ def get_tools() -> list[dict]:
         },
         {
             "name": "delete_automod_rule",
-            "description": "Supprime une règle AutoMod.",
+            "description": "Delete an AutoMod rule.",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "rule": {"type": "string", "description": "Nom ou ID de la règle"},
+                    "rule": {"type": "string", "description": "Rule name or ID"},
                 },
                 "required": ["rule"],
             },
@@ -645,7 +645,7 @@ def get_tools() -> list[dict]:
         # ── Domain 6 — Server Settings ────────────────────────────────────────
         {
             "name": "edit_server",
-            "description": "Modifie les paramètres du serveur Discord (niveau vérification, filtres, channels système, locale, etc.).",
+            "description": "Edit Discord server settings (verification level, filters, system channels, locale, etc.).",
             "input_schema": {
                 "type": "object",
                 "properties": {
@@ -653,12 +653,12 @@ def get_tools() -> list[dict]:
                     "verification_level": {
                         "type": "string",
                         "enum": ["none", "low", "medium", "high", "highest"],
-                        "description": "Niveau de vérification des nouveaux membres (optionnel)",
+                        "description": "Verification level for new members (optional)",
                     },
                     "default_message_notifications": {
                         "type": "string",
                         "enum": ["all_messages", "only_mentions"],
-                        "description": "Notifications par défaut pour les nouveaux membres (optionnel)",
+                        "description": "Default notifications for new members (optional)",
                     },
                     "explicit_content_filter": {
                         "type": "string",
@@ -667,36 +667,36 @@ def get_tools() -> list[dict]:
                     },
                     "afk_channel": {
                         "type": "string",
-                        "description": "Nom ou ID du channel vocal AFK, null pour désactiver (optionnel)",
+                        "description": "AFK voice channel name or ID, null to disable (optional)",
                     },
                     "afk_timeout": {
                         "type": "integer",
                         "enum": [60, 300, 900, 1800, 3600],
-                        "description": "Délai AFK en secondes (optionnel)",
+                        "description": "AFK delay in seconds (optional)",
                     },
                     "system_channel": {
                         "type": "string",
-                        "description": "Nom ou ID du channel pour messages système (accueil, boosts) (optionnel)",
+                        "description": "Channel name or ID for system messages (welcome, boosts) (optional)",
                     },
                     "rules_channel": {
                         "type": "string",
-                        "description": "Nom ou ID du channel rules (serveurs communauté) (optionnel)",
+                        "description": "Rules channel name or ID (community servers) (optional)",
                     },
                     "public_updates_channel": {
                         "type": "string",
-                        "description": "Nom ou ID du channel mises à jour Discord (serveurs communauté) (optionnel)",
+                        "description": "Channel name or ID for Discord updates (community servers) (optional)",
                     },
                     "safety_alerts_channel": {
                         "type": "string",
-                        "description": "Nom ou ID du channel alertes sécurité Discord (optionnel)",
+                        "description": "Channel name or ID for Discord safety alerts (optional)",
                     },
                     "description": {
                         "type": "string",
-                        "description": "Description du serveur communauté (optionnel)",
+                        "description": "Community server description (optional)",
                     },
                     "preferred_locale": {
                         "type": "string",
-                        "description": "Langue préférée ex: 'fr', 'en-US', 'de' (optionnel)",
+                        "description": "Preferred locale, e.g. 'fr', 'en-US', 'de' (optional)",
                     },
                     "premium_progress_bar_enabled": {
                         "type": "boolean",
@@ -708,17 +708,17 @@ def get_tools() -> list[dict]:
         # ── Domain 7 — Welcome Screen ─────────────────────────────────────────
         {
             "name": "edit_welcome_screen",
-            "description": "Modifie l'écran de bienvenue du serveur communauté.",
+            "description": "Edit the welcome screen of a community server.",
             "input_schema": {
                 "type": "object",
                 "properties": {
                     "enabled": {
                         "type": "boolean",
-                        "description": "Activer l'écran de bienvenue (optionnel)",
+                        "description": "Enable the welcome screen (optional)",
                     },
                     "description": {
                         "type": "string",
-                        "description": "Texte d'accueil affiché (optionnel)",
+                        "description": "Welcome text shown (optional)",
                     },
                     "welcome_channels": {
                         "type": "array",
@@ -727,7 +727,7 @@ def get_tools() -> list[dict]:
                             "properties": {
                                 "channel": {
                                     "type": "string",
-                                    "description": "Nom ou ID du channel",
+                                    "description": "Channel name or ID",
                                 },
                                 "description": {
                                     "type": "string",
@@ -748,28 +748,28 @@ def get_tools() -> list[dict]:
         # ── Read-only ─────────────────────────────────────────────────────────
         {
             "name": "list_channels",
-            "description": "Liste les channels et catégories du guild.",
+            "description": "List the guild's channels and categories.",
             "input_schema": {"type": "object", "properties": {}},
         },
         {
             "name": "list_roles",
-            "description": "Liste les rôles du guild.",
+            "description": "List the guild's roles.",
             "input_schema": {"type": "object", "properties": {}},
         },
         {
             "name": "get_member_roles",
-            "description": "Liste les rôles actuels d'un membre.",
+            "description": "List a member's current roles.",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "user": {"type": "string", "description": "@mention ou user_id numérique"},
+                    "user": {"type": "string", "description": "@mention or numeric user_id"},
                 },
                 "required": ["user"],
             },
         },
         {
             "name": "get_server_info",
-            "description": "Retourne les paramètres actuels du serveur (niveau vérification, filtres, locale, boost, etc.).",
+            "description": "Return current server settings (verification level, filters, locale, boost, etc.).",
             "input_schema": {"type": "object", "properties": {}},
         },
         {
@@ -784,34 +784,34 @@ def get_tools() -> list[dict]:
         },
         {
             "name": "list_scheduled_events",
-            "description": "Liste les événements planifiés du serveur.",
+            "description": "List the server's scheduled events.",
             "input_schema": {"type": "object", "properties": {}},
         },
         {
             "name": "list_automod_rules",
-            "description": "Liste les règles AutoMod du serveur.",
+            "description": "List the server's AutoMod rules.",
             "input_schema": {"type": "object", "properties": {}},
         },
         {
             "name": "check_bot_permissions",
             "description": (
-                "Vérifie les permissions Discord actuellement accordées au bot. "
-                "À appeler avant generate_plan si le plan implique des mutations risquant "
-                "d'échouer (gestion de rôles, AutoMod, paramètres serveur). Évite de proposer "
-                "un plan qui échouera au moment de l'exécution."
+                "Check the Discord permissions currently granted to the bot. "
+                "Call this before generate_plan if the plan involves mutations likely "
+                "to fail (role management, AutoMod, server settings). Avoid proposing "
+                "a plan that will fail at execution time."
             ),
             "input_schema": {"type": "object", "properties": {}},
         },
         # ── Meta ──────────────────────────────────────────────────────────────
         {
             "name": "ask_clarification",
-            "description": "Pose une question à l'utilisateur pour clarifier sa demande avant d'agir.",
+            "description": "Ask the user a question to clarify their request before acting.",
             "input_schema": {
                 "type": "object",
                 "properties": {
                     "question": {
                         "type": "string",
-                        "description": "La question à poser à l'utilisateur",
+                        "description": "The question to ask the user",
                     },
                 },
                 "required": ["question"],
@@ -819,7 +819,7 @@ def get_tools() -> list[dict]:
         },
         {
             "name": "generate_plan",
-            "description": "Génère un plan complet de configuration Discord. Utilise ce tool quand la demande implique de créer ou modifier plusieurs éléments en une seule opération. Le plan sera présenté à l'utilisateur pour validation avant toute exécution.",
+            "description": "Generate a complete Discord configuration plan. Use this tool when the request implies creating or modifying several items in a single operation. The plan will be shown to the user for validation before any execution.",
             "input_schema": {
                 "type": "object",
                 "properties": {
@@ -829,7 +829,7 @@ def get_tools() -> list[dict]:
                     },
                     "actions": {
                         "type": "array",
-                        "description": "Liste ordonnée des actions à exécuter",
+                        "description": "Ordered list of actions to execute",
                         "items": {
                             "type": "object",
                             "properties": {
@@ -840,7 +840,7 @@ def get_tools() -> list[dict]:
                                 },
                                 "params": {
                                     "type": "object",
-                                    "description": "Paramètres de l'action",
+                                    "description": "Action parameters",
                                 },
                             },
                             "required": ["type", "params"],
