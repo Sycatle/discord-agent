@@ -98,19 +98,33 @@ class PlanView(discord.ui.View):
         from collections import Counter
         type_counts = Counter(a.get("type", "unknown") for a in self.actions)
 
-        # Build summary line
-        count_parts = []
-        type_labels = {
-            "create_category": "catégories",
-            "create_text_channel": "channels texte",
-            "create_voice_channel": "channels vocaux",
-            "create_role": "rôles",
-            "set_channel_permissions": "permissions",
+        # Build summary line — group by domain so 27+ ActionTypes stay readable
+        domain_buckets = {
+            "créations": (
+                "create_category", "create_text_channel", "create_voice_channel",
+                "create_forum_channel", "create_stage_channel", "create_role",
+                "create_invite", "create_webhook", "create_scheduled_event",
+                "create_automod_rule",
+            ),
+            "modifications": (
+                "edit_channel", "edit_role", "edit_member", "edit_webhook",
+                "edit_scheduled_event", "edit_automod_rule", "edit_server",
+                "edit_welcome_screen", "set_channel_permissions",
+                "assign_role", "remove_role",
+            ),
+            "suppressions": (
+                "delete_channel", "delete_invite", "delete_webhook",
+                "delete_role", "delete_scheduled_event", "delete_automod_rule",
+            ),
         }
-        for action_type, label in type_labels.items():
-            count = type_counts.get(action_type, 0)
+        count_parts = []
+        for label, types in domain_buckets.items():
+            count = sum(type_counts.get(t, 0) for t in types)
             if count > 0:
                 count_parts.append(f"**{count}** {label}")
+        unknown = sum(c for t, c in type_counts.items() if not any(t in types for types in domain_buckets.values()))
+        if unknown:
+            count_parts.append(f"**{unknown}** autres")
         summary = " · ".join(count_parts) if count_parts else "Aucune action"
 
         embed = discord.Embed(

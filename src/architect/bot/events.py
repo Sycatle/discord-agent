@@ -146,7 +146,8 @@ class BotEvents(commands.Cog):
 
         try:
             channels = await guild.fetch_channels()
-        except Exception:
+        except discord.HTTPException:
+            logger.exception("fetch_channels failed for guild %s", guild.id)
             channels = None
         guild_context = _serialize_guild(guild, channels)
         server_context = load_guild_context(guild.id)
@@ -164,6 +165,7 @@ class BotEvents(commands.Cog):
         try:
             await self._run_agent_loop(message, thread, status_msg, guild, channel_id, guild_context, server_context)
         except Exception:
+            logger.exception("agent loop failed for channel %s", channel_id)
             await status_msg.edit(
                 embed=_make_embed("Une erreur inattendue s'est produite.", color=discord.Color.red())
             )
@@ -349,6 +351,7 @@ class BotEvents(commands.Cog):
                 await self._executor.execute(action_type, params, guild)
                 success_count += 1
             except Exception as e:
+                logger.exception("action %s failed in batch", action_type)
                 errors.append(f"{action_type}({params.get('name', '?')}): {e}")
 
             # Update progress every 5 actions or on last action
@@ -359,8 +362,8 @@ class BotEvents(commands.Cog):
                 embed = discord.Embed(description=status, color=discord.Color.orange())
                 try:
                     await progress_msg.edit(embed=embed)
-                except Exception:
-                    pass  # don't fail if edit fails
+                except discord.HTTPException:
+                    logger.warning("progress_msg edit failed, continuing")
 
         return success_count, errors
 
@@ -420,6 +423,7 @@ class BotEvents(commands.Cog):
                     success_count += 1
                     await dest.send(embed=_make_embed(f"`{action_type}`: {params.get('name', '?')}", color=discord.Color.green()))
                 except Exception as e:
+                    logger.exception("action %s failed during review", action_type)
                     error_msg = f"{action_type}: {e}"
                     errors.append(error_msg)
                     await dest.send(embed=_make_embed(error_msg, title="Erreur", color=discord.Color.red()))
