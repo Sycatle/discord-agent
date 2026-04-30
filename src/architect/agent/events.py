@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TypeAlias
+from typing import Any
 
 
 @dataclass
@@ -12,7 +12,7 @@ class ReplyEvent:
 @dataclass
 class ToolCallEvent:
     tool_name: str
-    params: dict
+    params: dict[str, Any]
     tool_use_id: str
 
 
@@ -34,8 +34,14 @@ class ClarificationEvent:
 @dataclass
 class PlanGeneratedEvent:
     title: str
-    actions: list[dict]
+    actions: list[dict[str, Any]]
     tool_use_id: str
 
 
-AgentEvent: TypeAlias = ReplyEvent | ConfirmationRequiredEvent | ReadOnlyToolEvent | ClarificationEvent | PlanGeneratedEvent
+type AgentEvent = (
+    ReplyEvent
+    | ConfirmationRequiredEvent
+    | ReadOnlyToolEvent
+    | ClarificationEvent
+    | PlanGeneratedEvent
+)

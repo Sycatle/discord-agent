@@ -1,6 +1,5 @@
 import json
-import pytest
-from pathlib import Path
+
 from architect.storage.guild_context import GuildContext, load, save
 
 
@@ -13,7 +12,9 @@ def test_save_creates_data_directory(tmp_path, monkeypatch):
 
 def test_save_and_load_roundtrip(tmp_path, monkeypatch):
     monkeypatch.setattr("architect.storage.guild_context.DATA_DIR", tmp_path / "data")
-    ctx = GuildContext(guild_id=42, name="CS2", objectives="Tournois", tone="Formel", rules="Max 10")
+    ctx = GuildContext(
+        guild_id=42, name="CS2", objectives="Tournois", tone="Formel", rules="Max 10"
+    )
     save(ctx)
     loaded = load(42)
     assert loaded is not None

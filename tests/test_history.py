@@ -1,5 +1,3 @@
-import pytest
-
 from architect.bot.history import ConversationHistory
 
 
@@ -45,7 +43,9 @@ def test_append_tool_result_format():
 
 def test_append_assistant_tool_calls_format():
     h = ConversationHistory()
-    blocks = [{"type": "tool_use", "id": "abc", "name": "create_category", "input": {"name": "Gaming"}}]
+    blocks = [
+        {"type": "tool_use", "id": "abc", "name": "create_category", "input": {"name": "Gaming"}}
+    ]
     h.append_assistant_tool_calls(1, blocks)
     msgs = h.get(1)
     assert len(msgs) == 1

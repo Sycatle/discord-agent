@@ -4,6 +4,7 @@ import json
 import logging
 import logging.handlers
 from pathlib import Path
+from typing import Any
 
 # Champs structurés autorisés via `extra={...}` — on les recopie tels quels
 # dans le JSON pour pouvoir filtrer/grepper en prod sans regex sur le message.
@@ -22,7 +23,7 @@ _STRUCTURED_FIELDS = (
 
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
-        data: dict = {
+        data: dict[str, Any] = {
             "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
             "level": record.levelname,
             "logger": record.name,
@@ -47,7 +48,10 @@ def setup_jsonl_handler(data_dir: Path) -> None:
     log_path = data_dir / "architect.jsonl"
     root = logging.getLogger()
     for h in root.handlers:
-        if isinstance(h, logging.handlers.RotatingFileHandler) and Path(h.baseFilename) == log_path.resolve():
+        if (
+            isinstance(h, logging.handlers.RotatingFileHandler)
+            and Path(h.baseFilename) == log_path.resolve()
+        ):
             return
     handler = logging.handlers.RotatingFileHandler(
         log_path, maxBytes=10_000_000, backupCount=5, encoding="utf-8"

@@ -393,11 +393,7 @@ class Executor:
                 }
                 entity_type = entity_type_map[params["entity_type"]]
                 start = datetime.fromisoformat(params["start_time"])
-                end = (
-                    datetime.fromisoformat(params["end_time"])
-                    if params.get("end_time")
-                    else None
-                )
+                end = datetime.fromisoformat(params["end_time"]) if params.get("end_time") else None
                 kwargs = {
                     "name": params["name"],
                     "start_time": start,
@@ -466,7 +462,8 @@ class Executor:
                     self._resolve_role(guild, r) for r in (params.get("exempt_roles") or [])
                 ]
                 exempt_channels = [
-                    c for r in (params.get("exempt_channels") or [])
+                    c
+                    for r in (params.get("exempt_channels") or [])
                     if (c := self._resolve_channel(guild, r)) is not None
                 ]
                 if exempt_roles:
@@ -494,12 +491,12 @@ class Executor:
                     kwargs["actions"] = self._build_automod_actions(guild, params["actions"])
                 if params.get("exempt_roles") is not None:
                     kwargs["exempt_roles"] = [
-                        r for n in params["exempt_roles"]
-                        if (r := self._resolve_role(guild, n))
+                        r for n in params["exempt_roles"] if (r := self._resolve_role(guild, n))
                     ]
                 if params.get("exempt_channels") is not None:
                     kwargs["exempt_channels"] = [
-                        c for n in params["exempt_channels"]
+                        c
+                        for n in params["exempt_channels"]
                         if (c := self._resolve_channel(guild, n)) is not None
                     ]
                 await rule.edit(**kwargs)
@@ -562,7 +559,9 @@ class Executor:
                 if (v := params.get("community")) is not None:
                     if v is True:
                         rules_ch = kwargs.get("rules_channel") or params.get("rules_channel")
-                        updates_ch = kwargs.get("public_updates_channel") or params.get("public_updates_channel")
+                        updates_ch = kwargs.get("public_updates_channel") or params.get(
+                            "public_updates_channel"
+                        )
                         if not rules_ch or not updates_ch:
                             raise ValueError(
                                 "community mode requires rules_channel and public_updates_channel"
@@ -584,7 +583,9 @@ class Executor:
                         ch = self._resolve_channel(guild, wc["channel"])
                         if ch is None:
                             raise ValueError(f"Welcome channel not found: {wc['channel']!r}")
-                        emoji = discord.PartialEmoji.from_str(wc["emoji"]) if wc.get("emoji") else None
+                        emoji = (
+                            discord.PartialEmoji.from_str(wc["emoji"]) if wc.get("emoji") else None
+                        )
                         channels.append(
                             discord.WelcomeChannel(
                                 channel=ch,
@@ -771,12 +772,10 @@ class Executor:
         for action_str in actions:
             if action_str == "block_message":
                 result.append(
-                    discord.AutoModRuleAction(
-                        type=discord.AutoModRuleActionType.block_message
-                    )
+                    discord.AutoModRuleAction(type=discord.AutoModRuleActionType.block_message)
                 )
             elif action_str.startswith("send_alert:"):
-                ch_ref = action_str[len("send_alert:"):]
+                ch_ref = action_str[len("send_alert:") :]
                 ch = self._resolve_channel(guild, ch_ref)
                 if ch is None:
                     raise ValueError(f"Alert channel not found: {ch_ref!r}")
@@ -787,7 +786,7 @@ class Executor:
                     )
                 )
             elif action_str.startswith("timeout:"):
-                duration_seconds = int(action_str[len("timeout:"):])
+                duration_seconds = int(action_str[len("timeout:") :])
                 result.append(
                     discord.AutoModRuleAction(
                         type=discord.AutoModRuleActionType.timeout,

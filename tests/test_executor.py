@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from architect.executor.executor import Executor
 
@@ -73,15 +74,14 @@ async def test_create_text_channel_with_category():
     executor = Executor()
 
     import discord
+
     with patch.object(discord.utils, "get", return_value=guild.categories[0]):
         result = await executor.execute(
             "create_text_channel",
             {"name": "news", "category": "Gaming"},
             guild,
         )
-    guild.create_text_channel.assert_called_once_with(
-        name="news", category=guild.categories[0]
-    )
+    guild.create_text_channel.assert_called_once_with(name="news", category=guild.categories[0])
     assert result == "Text channel created: #news"
 
 
@@ -100,6 +100,7 @@ async def test_create_role_with_hex_color():
     executor = Executor()
 
     import discord
+
     result = await executor.execute(
         "create_role",
         {"name": "Moderator", "color": "#ff0000", "mentionable": True},
@@ -119,6 +120,7 @@ async def test_create_role_with_int_color():
     executor = Executor()
 
     import discord
+
     result = await executor.execute(
         "create_role",
         {"name": "Member", "color": 0x00FF00},
@@ -186,6 +188,7 @@ async def test_unknown_tool_raises():
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _extend_guild(guild):
     """Étend le mock guild avec les méthodes/attributs nécessaires aux nouveaux tests."""
@@ -355,11 +358,13 @@ async def test_delete_channel_guards_rules_channel():
 
 # ── Domain 2 — Roles ──────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_edit_role():
     guild = _make_guild()
     guild, *_ = _extend_guild(guild)
     import discord
+
     executor = Executor()
     result = await executor.execute(
         "edit_role",
@@ -397,9 +402,7 @@ async def test_assign_role():
     guild = _make_guild()
     guild, _, member, *_ = _extend_guild(guild)
     executor = Executor()
-    result = await executor.execute(
-        "assign_role", {"user": "<@999>", "role": "Admin"}, guild
-    )
+    result = await executor.execute("assign_role", {"user": "<@999>", "role": "Admin"}, guild)
     member.add_roles.assert_called_once_with(guild.roles[0])
     assert "Admin" in result
 
@@ -409,23 +412,20 @@ async def test_remove_role():
     guild = _make_guild()
     guild, _, member, *_ = _extend_guild(guild)
     executor = Executor()
-    result = await executor.execute(
-        "remove_role", {"user": "999", "role": "Admin"}, guild
-    )
+    result = await executor.execute("remove_role", {"user": "999", "role": "Admin"}, guild)
     member.remove_roles.assert_called_once_with(guild.roles[0])
     assert "Admin" in result
 
 
 # ── Domain 3 — Members ────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_edit_member_nick():
     guild = _make_guild()
     guild, _, member, *_ = _extend_guild(guild)
     executor = Executor()
-    result = await executor.execute(
-        "edit_member", {"user": "<@999>", "nick": "SuperAdmin"}, guild
-    )
+    result = await executor.execute("edit_member", {"user": "<@999>", "nick": "SuperAdmin"}, guild)
     member.edit.assert_called_once()
     assert member.edit.call_args.kwargs["nick"] == "SuperAdmin"
     assert "999" in result
@@ -448,6 +448,7 @@ async def test_edit_member_timeout():
 
 
 # ── Domain 4 — Scheduled Events ───────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_create_scheduled_event_voice():
@@ -473,14 +474,13 @@ async def test_delete_scheduled_event():
     guild = _make_guild()
     guild, _, _, _, evt, *_ = _extend_guild(guild)
     executor = Executor()
-    result = await executor.execute(
-        "delete_scheduled_event", {"event": "Game Night"}, guild
-    )
+    result = await executor.execute("delete_scheduled_event", {"event": "Game Night"}, guild)
     evt.delete.assert_called_once()
     assert "Game Night" in result
 
 
 # ── Domain 5 — AutoMod ────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_create_automod_rule_keyword():
@@ -507,27 +507,23 @@ async def test_delete_automod_rule():
     guild = _make_guild()
     guild, _, _, _, _, rule, _ = _extend_guild(guild)
     executor = Executor()
-    result = await executor.execute(
-        "delete_automod_rule", {"rule": "no-spam"}, guild
-    )
+    result = await executor.execute("delete_automod_rule", {"rule": "no-spam"}, guild)
     rule.delete.assert_called_once()
     assert "no-spam" in result
 
 
 # ── Domain 6 — Server Settings ────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_edit_server_verification_level():
     guild = _make_guild()
     guild, *_ = _extend_guild(guild)
     import discord
+
     executor = Executor()
-    result = await executor.execute(
-        "edit_server", {"verification_level": "medium"}, guild
-    )
-    guild.edit.assert_called_once_with(
-        verification_level=discord.VerificationLevel.medium
-    )
+    result = await executor.execute("edit_server", {"verification_level": "medium"}, guild)
+    guild.edit.assert_called_once_with(verification_level=discord.VerificationLevel.medium)
     assert result == "Server settings updated"
 
 
@@ -536,16 +532,16 @@ async def test_edit_server_name_and_locale():
     guild = _make_guild()
     guild, *_ = _extend_guild(guild)
     import discord
+
     executor = Executor()
-    await executor.execute(
-        "edit_server", {"name": "Mon Serveur", "preferred_locale": "fr"}, guild
-    )
+    await executor.execute("edit_server", {"name": "Mon Serveur", "preferred_locale": "fr"}, guild)
     call_kwargs = guild.edit.call_args.kwargs
     assert call_kwargs["name"] == "Mon Serveur"
     assert call_kwargs["preferred_locale"] == discord.Locale.french
 
 
 # ── Read-only ─────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_get_member_roles():
@@ -604,6 +600,7 @@ async def test_list_automod_rules():
 
 
 # ── Invites + Webhooks ────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_create_invite():
@@ -665,6 +662,7 @@ async def test_edit_webhook():
 
 # ── Scheduled Events — Stage & External ──────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_create_scheduled_event_stage():
     guild = _make_guild()
@@ -673,7 +671,7 @@ async def test_create_scheduled_event_stage():
     # Add a stage channel to guild.channels
     stage_ch = MagicMock()
     stage_ch.name = "stage-channel"
-    guild.channels = [stage_ch] + list(guild.channels)
+    guild.channels = [stage_ch, *list(guild.channels)]
 
     evt.name = "Grand Concert"
     executor = Executor()
@@ -690,6 +688,7 @@ async def test_create_scheduled_event_stage():
     guild.create_scheduled_event.assert_called_once()
     call_kwargs = guild.create_scheduled_event.call_args.kwargs
     import discord
+
     assert call_kwargs["entity_type"] == discord.EntityType.stage_instance
     assert call_kwargs["channel"] is stage_ch
     assert "Grand Concert" in result
@@ -716,6 +715,7 @@ async def test_create_scheduled_event_external():
     guild.create_scheduled_event.assert_called_once()
     call_kwargs = guild.create_scheduled_event.call_args.kwargs
     import discord
+
     assert call_kwargs["entity_type"] == discord.EntityType.external
     assert call_kwargs["location"] == "Paris"
     assert call_kwargs["end_time"] is not None
@@ -724,6 +724,7 @@ async def test_create_scheduled_event_external():
 
 # ── edit_member voice ops ─────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_edit_member_voice_ops():
     guild = _make_guild()
@@ -731,7 +732,7 @@ async def test_edit_member_voice_ops():
     # Add a voice channel named "general-voice"
     voice_ch = MagicMock()
     voice_ch.name = "general-voice"
-    guild.channels = [voice_ch] + list(guild.channels)
+    guild.channels = [voice_ch, *list(guild.channels)]
 
     executor = Executor()
     result = await executor.execute(
@@ -748,6 +749,7 @@ async def test_edit_member_voice_ops():
 
 
 # ── check_bot_permissions + strict mode ──────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_check_bot_permissions_lists_granted_and_missing():

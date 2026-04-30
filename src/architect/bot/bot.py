@@ -1,17 +1,18 @@
 import logging
+
 import discord
 from discord.ext import commands
 
-logger = logging.getLogger(__name__)
+from architect.agent.agent import ArchitectAgent
+from architect.agent.providers.base import LLMProvider
+from architect.agent.providers.claude import ClaudeProvider
+from architect.bot.context_command import ContextCommand
+from architect.bot.events import BotEvents
+from architect.bot.history import ConversationHistory
+from architect.config import settings
+from architect.executor.executor import Executor
 
-from ..config import settings
-from ..agent.agent import ArchitectAgent
-from ..agent.providers.base import LLMProvider
-from ..agent.providers.claude import ClaudeProvider
-from ..executor.executor import Executor
-from ..bot.events import BotEvents
-from ..bot.history import ConversationHistory
-from ..bot.context_command import ContextCommand
+logger = logging.getLogger(__name__)
 
 
 class ArchitectBot(commands.Bot):

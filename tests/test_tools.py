@@ -1,20 +1,37 @@
-from architect.agent.tools import READONLY_TOOLS, META_TOOLS, MUTATION_TOOLS, get_tools
+from architect.agent.tools import META_TOOLS, MUTATION_TOOLS, READONLY_TOOLS, get_tools
 
 ALL_MUTATION_TOOLS = {
     # existing
-    "create_category", "create_text_channel", "create_voice_channel",
-    "create_role", "set_channel_permissions",
+    "create_category",
+    "create_text_channel",
+    "create_voice_channel",
+    "create_role",
+    "set_channel_permissions",
     # domain 1
-    "create_forum_channel", "create_stage_channel", "edit_channel", "delete_channel",
-    "create_invite", "delete_invite", "create_webhook", "edit_webhook", "delete_webhook",
+    "create_forum_channel",
+    "create_stage_channel",
+    "edit_channel",
+    "delete_channel",
+    "create_invite",
+    "delete_invite",
+    "create_webhook",
+    "edit_webhook",
+    "delete_webhook",
     # domain 2
-    "edit_role", "delete_role", "assign_role", "remove_role",
+    "edit_role",
+    "delete_role",
+    "assign_role",
+    "remove_role",
     # domain 3
     "edit_member",
     # domain 4
-    "create_scheduled_event", "edit_scheduled_event", "delete_scheduled_event",
+    "create_scheduled_event",
+    "edit_scheduled_event",
+    "delete_scheduled_event",
     # domain 5
-    "create_automod_rule", "edit_automod_rule", "delete_automod_rule",
+    "create_automod_rule",
+    "edit_automod_rule",
+    "delete_automod_rule",
     # domain 6
     "edit_server",
     # domain 7
@@ -22,10 +39,14 @@ ALL_MUTATION_TOOLS = {
 }
 
 ALL_READONLY_TOOLS = {
-    "list_channels", "list_roles",
-    "get_member_roles", "get_server_info",
-    "list_invites", "list_webhooks",
-    "list_scheduled_events", "list_automod_rules",
+    "list_channels",
+    "list_roles",
+    "get_member_roles",
+    "get_server_info",
+    "list_invites",
+    "list_webhooks",
+    "list_scheduled_events",
+    "list_automod_rules",
 }
 
 
@@ -97,6 +118,8 @@ def test_create_scheduled_event_schema():
 
 def test_generate_plan_enum_includes_new_types():
     tools = {t["name"]: t for t in get_tools()}
-    enum_values = tools["generate_plan"]["input_schema"]["properties"]["actions"]["items"]["properties"]["type"]["enum"]
+    enum_values = tools["generate_plan"]["input_schema"]["properties"]["actions"]["items"][
+        "properties"
+    ]["type"]["enum"]
     for name in ["edit_channel", "delete_channel", "edit_role", "assign_role", "edit_server"]:
         assert name in enum_values, f"generate_plan enum missing: {name}"

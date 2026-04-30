@@ -1,35 +1,58 @@
-READONLY_TOOLS: frozenset[str] = frozenset({
-    "list_channels", "list_roles",
-    "get_member_roles", "get_server_info",
-    "list_invites", "list_webhooks",
-    "list_scheduled_events", "list_automod_rules",
-    "check_bot_permissions",
-})
+READONLY_TOOLS: frozenset[str] = frozenset(
+    {
+        "list_channels",
+        "list_roles",
+        "get_member_roles",
+        "get_server_info",
+        "list_invites",
+        "list_webhooks",
+        "list_scheduled_events",
+        "list_automod_rules",
+        "check_bot_permissions",
+    }
+)
 
 META_TOOLS: frozenset[str] = frozenset({"ask_clarification", "generate_plan"})
 
-MUTATION_TOOLS: frozenset[str] = frozenset({
-    # existing
-    "create_category", "create_text_channel", "create_voice_channel",
-    "create_role", "set_channel_permissions",
-    # domain 1
-    "create_forum_channel", "create_stage_channel",
-    "edit_channel", "delete_channel",
-    "create_invite", "delete_invite",
-    "create_webhook", "edit_webhook", "delete_webhook",
-    # domain 2
-    "edit_role", "delete_role", "assign_role", "remove_role",
-    # domain 3
-    "edit_member",
-    # domain 4
-    "create_scheduled_event", "edit_scheduled_event", "delete_scheduled_event",
-    # domain 5
-    "create_automod_rule", "edit_automod_rule", "delete_automod_rule",
-    # domain 6
-    "edit_server",
-    # domain 7
-    "edit_welcome_screen",
-})
+MUTATION_TOOLS: frozenset[str] = frozenset(
+    {
+        # existing
+        "create_category",
+        "create_text_channel",
+        "create_voice_channel",
+        "create_role",
+        "set_channel_permissions",
+        # domain 1
+        "create_forum_channel",
+        "create_stage_channel",
+        "edit_channel",
+        "delete_channel",
+        "create_invite",
+        "delete_invite",
+        "create_webhook",
+        "edit_webhook",
+        "delete_webhook",
+        # domain 2
+        "edit_role",
+        "delete_role",
+        "assign_role",
+        "remove_role",
+        # domain 3
+        "edit_member",
+        # domain 4
+        "create_scheduled_event",
+        "edit_scheduled_event",
+        "delete_scheduled_event",
+        # domain 5
+        "create_automod_rule",
+        "edit_automod_rule",
+        "delete_automod_rule",
+        # domain 6
+        "edit_server",
+        # domain 7
+        "edit_welcome_screen",
+    }
+)
 
 _ALL_ACTION_TYPES = sorted(MUTATION_TOOLS)  # sorted for deterministic order across restarts
 
@@ -55,7 +78,10 @@ def get_tools() -> list[dict]:
                 "type": "object",
                 "properties": {
                     "name": {"type": "string", "description": "Nom du channel"},
-                    "category": {"type": "string", "description": "Nom de la catégorie parente (optionnel)"},
+                    "category": {
+                        "type": "string",
+                        "description": "Nom de la catégorie parente (optionnel)",
+                    },
                 },
                 "required": ["name"],
             },
@@ -67,7 +93,10 @@ def get_tools() -> list[dict]:
                 "type": "object",
                 "properties": {
                     "name": {"type": "string", "description": "Nom du channel vocal"},
-                    "category": {"type": "string", "description": "Nom de la catégorie parente (optionnel)"},
+                    "category": {
+                        "type": "string",
+                        "description": "Nom de la catégorie parente (optionnel)",
+                    },
                 },
                 "required": ["name"],
             },
@@ -79,8 +108,14 @@ def get_tools() -> list[dict]:
                 "type": "object",
                 "properties": {
                     "name": {"type": "string", "description": "Nom du rôle"},
-                    "color": {"type": "string", "description": "Couleur hex du rôle, ex: '#3498DB' (optionnel)"},
-                    "mentionable": {"type": "boolean", "description": "Si le rôle est mentionnable (optionnel)"},
+                    "color": {
+                        "type": "string",
+                        "description": "Couleur hex du rôle, ex: '#3498DB' (optionnel)",
+                    },
+                    "mentionable": {
+                        "type": "boolean",
+                        "description": "Si le rôle est mentionnable (optionnel)",
+                    },
                 },
                 "required": ["name"],
             },
@@ -116,15 +151,24 @@ def get_tools() -> list[dict]:
                 "properties": {
                     "name": {"type": "string", "description": "Nom du forum"},
                     "category": {"type": "string", "description": "Catégorie parente (optionnel)"},
-                    "topic": {"type": "string", "description": "Description du forum, max 4096 chars (optionnel)"},
-                    "slowmode": {"type": "integer", "description": "Délai entre messages en secondes, 0-21600 (optionnel)"},
+                    "topic": {
+                        "type": "string",
+                        "description": "Description du forum, max 4096 chars (optionnel)",
+                    },
+                    "slowmode": {
+                        "type": "integer",
+                        "description": "Délai entre messages en secondes, 0-21600 (optionnel)",
+                    },
                     "nsfw": {"type": "boolean", "description": "Contenu adulte (optionnel)"},
                     "available_tags": {
                         "type": "array",
                         "items": {"type": "string"},
                         "description": "Noms des tags disponibles, max 20 (optionnel)",
                     },
-                    "require_tag": {"type": "boolean", "description": "Obliger un tag sur chaque thread (optionnel)"},
+                    "require_tag": {
+                        "type": "boolean",
+                        "description": "Obliger un tag sur chaque thread (optionnel)",
+                    },
                     "default_sort_order": {
                         "type": "string",
                         "enum": ["latest_activity", "creation_date"],
@@ -147,10 +191,22 @@ def get_tools() -> list[dict]:
                 "properties": {
                     "name": {"type": "string", "description": "Nom du stage"},
                     "category": {"type": "string", "description": "Catégorie parente (optionnel)"},
-                    "bitrate": {"type": "integer", "description": "Qualité audio en bps (optionnel)"},
-                    "user_limit": {"type": "integer", "description": "Limite d'utilisateurs 0-10000 (optionnel)"},
-                    "rtc_region": {"type": "string", "description": "Région vocale override, null = auto (optionnel)"},
-                    "position": {"type": "integer", "description": "Position dans la liste (optionnel)"},
+                    "bitrate": {
+                        "type": "integer",
+                        "description": "Qualité audio en bps (optionnel)",
+                    },
+                    "user_limit": {
+                        "type": "integer",
+                        "description": "Limite d'utilisateurs 0-10000 (optionnel)",
+                    },
+                    "rtc_region": {
+                        "type": "string",
+                        "description": "Région vocale override, null = auto (optionnel)",
+                    },
+                    "position": {
+                        "type": "integer",
+                        "description": "Position dans la liste (optionnel)",
+                    },
                 },
                 "required": ["name"],
             },
@@ -163,14 +219,35 @@ def get_tools() -> list[dict]:
                 "properties": {
                     "channel": {"type": "string", "description": "Nom ou ID du channel"},
                     "name": {"type": "string", "description": "Nouveau nom (optionnel)"},
-                    "topic": {"type": "string", "description": "Topic du channel, max 1024 chars (optionnel)"},
-                    "slowmode": {"type": "integer", "description": "Délai slowmode en secondes, 0-21600 (optionnel)"},
+                    "topic": {
+                        "type": "string",
+                        "description": "Topic du channel, max 1024 chars (optionnel)",
+                    },
+                    "slowmode": {
+                        "type": "integer",
+                        "description": "Délai slowmode en secondes, 0-21600 (optionnel)",
+                    },
                     "nsfw": {"type": "boolean", "description": "Contenu adulte (optionnel)"},
-                    "position": {"type": "integer", "description": "Position dans la liste (optionnel)"},
-                    "bitrate": {"type": "integer", "description": "Qualité audio en bps, voice/stage uniquement (optionnel)"},
-                    "user_limit": {"type": "integer", "description": "Limite membres, voice: 0-99 (optionnel)"},
-                    "parent_id": {"type": "string", "description": "Déplacer vers cette catégorie (nom ou ID) (optionnel)"},
-                    "rtc_region": {"type": "string", "description": "Région vocale override (optionnel)"},
+                    "position": {
+                        "type": "integer",
+                        "description": "Position dans la liste (optionnel)",
+                    },
+                    "bitrate": {
+                        "type": "integer",
+                        "description": "Qualité audio en bps, voice/stage uniquement (optionnel)",
+                    },
+                    "user_limit": {
+                        "type": "integer",
+                        "description": "Limite membres, voice: 0-99 (optionnel)",
+                    },
+                    "parent_id": {
+                        "type": "string",
+                        "description": "Déplacer vers cette catégorie (nom ou ID) (optionnel)",
+                    },
+                    "rtc_region": {
+                        "type": "string",
+                        "description": "Région vocale override (optionnel)",
+                    },
                     "video_quality_mode": {
                         "type": "string",
                         "enum": ["auto", "full"],
@@ -191,8 +268,14 @@ def get_tools() -> list[dict]:
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "channel": {"type": "string", "description": "Nom ou ID du channel à supprimer"},
-                    "reason": {"type": "string", "description": "Raison de la suppression (optionnel)"},
+                    "channel": {
+                        "type": "string",
+                        "description": "Nom ou ID du channel à supprimer",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Raison de la suppression (optionnel)",
+                    },
                 },
                 "required": ["channel"],
             },
@@ -204,9 +287,18 @@ def get_tools() -> list[dict]:
                 "type": "object",
                 "properties": {
                     "channel": {"type": "string", "description": "Nom ou ID du channel"},
-                    "max_age": {"type": "integer", "description": "Durée de validité en secondes, 0 = permanent, max 604800 (optionnel)"},
-                    "max_uses": {"type": "integer", "description": "Nombre max d'utilisations, 0 = illimité, max 100 (optionnel)"},
-                    "temporary": {"type": "boolean", "description": "Kicker si aucun rôle assigné (optionnel)"},
+                    "max_age": {
+                        "type": "integer",
+                        "description": "Durée de validité en secondes, 0 = permanent, max 604800 (optionnel)",
+                    },
+                    "max_uses": {
+                        "type": "integer",
+                        "description": "Nombre max d'utilisations, 0 = illimité, max 100 (optionnel)",
+                    },
+                    "temporary": {
+                        "type": "boolean",
+                        "description": "Kicker si aucun rôle assigné (optionnel)",
+                    },
                 },
                 "required": ["channel"],
             },
@@ -217,7 +309,10 @@ def get_tools() -> list[dict]:
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "code": {"type": "string", "description": "Code de l'invitation (ex: 'xKy3h2')"},
+                    "code": {
+                        "type": "string",
+                        "description": "Code de l'invitation (ex: 'xKy3h2')",
+                    },
                 },
                 "required": ["code"],
             },
@@ -242,7 +337,10 @@ def get_tools() -> list[dict]:
                 "properties": {
                     "webhook": {"type": "string", "description": "Nom ou ID du webhook"},
                     "name": {"type": "string", "description": "Nouveau nom (optionnel)"},
-                    "channel": {"type": "string", "description": "Déplacer vers ce channel (nom ou ID) (optionnel)"},
+                    "channel": {
+                        "type": "string",
+                        "description": "Déplacer vers ce channel (nom ou ID) (optionnel)",
+                    },
                 },
                 "required": ["webhook"],
             },
@@ -268,8 +366,14 @@ def get_tools() -> list[dict]:
                     "role": {"type": "string", "description": "Nom ou ID du rôle"},
                     "name": {"type": "string", "description": "Nouveau nom (optionnel)"},
                     "color": {"type": "string", "description": "Couleur hex '#RRGGBB' (optionnel)"},
-                    "hoist": {"type": "boolean", "description": "Afficher séparément dans la liste membres (optionnel)"},
-                    "mentionable": {"type": "boolean", "description": "Permettre les @mentions (optionnel)"},
+                    "hoist": {
+                        "type": "boolean",
+                        "description": "Afficher séparément dans la liste membres (optionnel)",
+                    },
+                    "mentionable": {
+                        "type": "boolean",
+                        "description": "Permettre les @mentions (optionnel)",
+                    },
                 },
                 "required": ["role"],
             },
@@ -318,9 +422,15 @@ def get_tools() -> list[dict]:
                 "type": "object",
                 "properties": {
                     "user": {"type": "string", "description": "@mention ou user_id numérique"},
-                    "nick": {"type": "string", "description": "Nouveau surnom, null pour reset (optionnel)"},
+                    "nick": {
+                        "type": "string",
+                        "description": "Nouveau surnom, null pour reset (optionnel)",
+                    },
                     "mute": {"type": "boolean", "description": "Mute serveur en vocal (optionnel)"},
-                    "deaf": {"type": "boolean", "description": "Sourd serveur en vocal (optionnel)"},
+                    "deaf": {
+                        "type": "boolean",
+                        "description": "Sourd serveur en vocal (optionnel)",
+                    },
                     "timeout_until": {
                         "type": "string",
                         "description": "ISO8601 datetime UTC jusqu'où le timeout dure, null pour supprimer (optionnel)",
@@ -341,7 +451,10 @@ def get_tools() -> list[dict]:
                 "type": "object",
                 "properties": {
                     "name": {"type": "string", "description": "Titre de l'événement"},
-                    "start_time": {"type": "string", "description": "Début ISO8601 UTC, ex: '2026-05-01T18:00:00Z'"},
+                    "start_time": {
+                        "type": "string",
+                        "description": "Début ISO8601 UTC, ex: '2026-05-01T18:00:00Z'",
+                    },
                     "entity_type": {
                         "type": "string",
                         "enum": ["voice", "stage", "external"],
@@ -359,7 +472,10 @@ def get_tools() -> list[dict]:
                         "type": "string",
                         "description": "Lieu physique (requis pour external)",
                     },
-                    "description": {"type": "string", "description": "Description de l'événement (optionnel)"},
+                    "description": {
+                        "type": "string",
+                        "description": "Description de l'événement (optionnel)",
+                    },
                 },
                 "required": ["name", "start_time", "entity_type"],
             },
@@ -372,9 +488,18 @@ def get_tools() -> list[dict]:
                 "properties": {
                     "event": {"type": "string", "description": "Nom ou ID de l'événement"},
                     "name": {"type": "string", "description": "Nouveau titre (optionnel)"},
-                    "start_time": {"type": "string", "description": "Nouvelle heure de début ISO8601 (optionnel)"},
-                    "end_time": {"type": "string", "description": "Nouvelle heure de fin ISO8601 (optionnel)"},
-                    "description": {"type": "string", "description": "Nouvelle description (optionnel)"},
+                    "start_time": {
+                        "type": "string",
+                        "description": "Nouvelle heure de début ISO8601 (optionnel)",
+                    },
+                    "end_time": {
+                        "type": "string",
+                        "description": "Nouvelle heure de fin ISO8601 (optionnel)",
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Nouvelle description (optionnel)",
+                    },
                     "status": {
                         "type": "string",
                         "enum": ["active", "completed", "canceled"],
@@ -455,7 +580,10 @@ def get_tools() -> list[dict]:
                         "items": {"type": "string"},
                         "description": "Channels exemptés (noms ou IDs), max 50 (optionnel)",
                     },
-                    "enabled": {"type": "boolean", "description": "Activer la règle (défaut false) (optionnel)"},
+                    "enabled": {
+                        "type": "boolean",
+                        "description": "Activer la règle (défaut false) (optionnel)",
+                    },
                 },
                 "required": ["name", "event_type", "trigger_type", "actions"],
             },
@@ -469,12 +597,36 @@ def get_tools() -> list[dict]:
                     "rule": {"type": "string", "description": "Nom ou ID de la règle"},
                     "name": {"type": "string", "description": "Nouveau nom (optionnel)"},
                     "enabled": {"type": "boolean", "description": "Activer/désactiver (optionnel)"},
-                    "keyword_filter": {"type": "array", "items": {"type": "string"}, "description": "Nouveaux mots-clés (optionnel)"},
-                    "regex_patterns": {"type": "array", "items": {"type": "string"}, "description": "Nouveaux regex (optionnel)"},
-                    "allow_list": {"type": "array", "items": {"type": "string"}, "description": "Nouvelle liste blanche (optionnel)"},
-                    "actions": {"type": "array", "items": {"type": "string"}, "description": "Nouvelles actions (optionnel)"},
-                    "exempt_roles": {"type": "array", "items": {"type": "string"}, "description": "Rôles exemptés (optionnel)"},
-                    "exempt_channels": {"type": "array", "items": {"type": "string"}, "description": "Channels exemptés (optionnel)"},
+                    "keyword_filter": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Nouveaux mots-clés (optionnel)",
+                    },
+                    "regex_patterns": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Nouveaux regex (optionnel)",
+                    },
+                    "allow_list": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Nouvelle liste blanche (optionnel)",
+                    },
+                    "actions": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Nouvelles actions (optionnel)",
+                    },
+                    "exempt_roles": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Rôles exemptés (optionnel)",
+                    },
+                    "exempt_channels": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Channels exemptés (optionnel)",
+                    },
                 },
                 "required": ["rule"],
             },
@@ -538,7 +690,10 @@ def get_tools() -> list[dict]:
                         "type": "string",
                         "description": "Nom ou ID du channel alertes sécurité Discord (optionnel)",
                     },
-                    "description": {"type": "string", "description": "Description du serveur communauté (optionnel)"},
+                    "description": {
+                        "type": "string",
+                        "description": "Description du serveur communauté (optionnel)",
+                    },
                     "preferred_locale": {
                         "type": "string",
                         "description": "Langue préférée ex: 'fr', 'en-US', 'de' (optionnel)",
@@ -557,16 +712,31 @@ def get_tools() -> list[dict]:
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "enabled": {"type": "boolean", "description": "Activer l'écran de bienvenue (optionnel)"},
-                    "description": {"type": "string", "description": "Texte d'accueil affiché (optionnel)"},
+                    "enabled": {
+                        "type": "boolean",
+                        "description": "Activer l'écran de bienvenue (optionnel)",
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Texte d'accueil affiché (optionnel)",
+                    },
                     "welcome_channels": {
                         "type": "array",
                         "items": {
                             "type": "object",
                             "properties": {
-                                "channel": {"type": "string", "description": "Nom ou ID du channel"},
-                                "description": {"type": "string", "description": "Courte description"},
-                                "emoji": {"type": "string", "description": "Emoji Unicode (optionnel)"},
+                                "channel": {
+                                    "type": "string",
+                                    "description": "Nom ou ID du channel",
+                                },
+                                "description": {
+                                    "type": "string",
+                                    "description": "Courte description",
+                                },
+                                "emoji": {
+                                    "type": "string",
+                                    "description": "Emoji Unicode (optionnel)",
+                                },
                             },
                             "required": ["channel", "description"],
                         },
@@ -639,7 +809,10 @@ def get_tools() -> list[dict]:
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "question": {"type": "string", "description": "La question à poser à l'utilisateur"},
+                    "question": {
+                        "type": "string",
+                        "description": "La question à poser à l'utilisateur",
+                    },
                 },
                 "required": ["question"],
             },
@@ -650,7 +823,10 @@ def get_tools() -> list[dict]:
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "title": {"type": "string", "description": "Titre du plan (ex: 'Serveur Gaming Pro')"},
+                    "title": {
+                        "type": "string",
+                        "description": "Titre du plan (ex: 'Serveur Gaming Pro')",
+                    },
                     "actions": {
                         "type": "array",
                         "description": "Liste ordonnée des actions à exécuter",
@@ -662,7 +838,10 @@ def get_tools() -> list[dict]:
                                     "enum": _ALL_ACTION_TYPES,
                                     "description": "Type d'action",
                                 },
-                                "params": {"type": "object", "description": "Paramètres de l'action"},
+                                "params": {
+                                    "type": "object",
+                                    "description": "Paramètres de l'action",
+                                },
                             },
                             "required": ["type", "params"],
                         },

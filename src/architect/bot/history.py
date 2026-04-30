@@ -1,14 +1,17 @@
+from typing import Any
+
+
 class ConversationHistory:
     def __init__(self, max_messages: int = 40) -> None:
-        self._store: dict[int, list[dict]] = {}
+        self._store: dict[int, list[dict[str, Any]]] = {}
         self._max = max_messages
 
-    def _get_or_create(self, channel_id: int) -> list[dict]:
+    def _get_or_create(self, channel_id: int) -> list[dict[str, Any]]:
         if channel_id not in self._store:
             self._store[channel_id] = []
         return self._store[channel_id]
 
-    def append(self, channel_id: int, role: str, content: str | list) -> None:
+    def append(self, channel_id: int, role: str, content: str | list[Any]) -> None:
         """Append a message to the channel's history. role = 'user' | 'assistant'"""
         messages = self._get_or_create(channel_id)
         messages.append({"role": role, "content": content})
@@ -27,7 +30,9 @@ class ConversationHistory:
             [{"type": "tool_result", "tool_use_id": tool_use_id, "content": result}],
         )
 
-    def append_assistant_tool_calls(self, channel_id: int, tool_calls_blocks: list[dict]) -> None:
+    def append_assistant_tool_calls(
+        self, channel_id: int, tool_calls_blocks: list[dict[str, Any]]
+    ) -> None:
         """Append an assistant message containing tool_use blocks.
 
         In Anthropic format:
@@ -35,7 +40,7 @@ class ConversationHistory:
         """
         self.append(channel_id, "assistant", tool_calls_blocks)
 
-    def get(self, channel_id: int) -> list[dict]:
+    def get(self, channel_id: int) -> list[dict[str, Any]]:
         """Return the message history for a channel (empty list if no history)."""
         return self._store.get(channel_id, [])
 

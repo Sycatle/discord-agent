@@ -1,4 +1,5 @@
 import anthropic
+
 from .base import LLMProvider
 
 DEFAULT_MODEL = "claude-sonnet-4-6"
@@ -25,7 +26,9 @@ class ClaudeProvider(LLMProvider):
         msg = await self._client.messages.create(
             model=self._model,
             max_tokens=4096,
-            system=[{"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}],
+            system=[
+                {"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}
+            ],
             messages=messages,
             tools=cached_tools,
         )

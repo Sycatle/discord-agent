@@ -1,5 +1,6 @@
 import pytest
 from pydantic import ValidationError
+
 from architect.models.actions import Action, ActionType
 
 

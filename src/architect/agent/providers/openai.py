@@ -1,5 +1,7 @@
 import json
+
 from openai import AsyncOpenAI
+
 from .base import LLMProvider
 
 DEFAULT_MODEL = "gpt-4o"
@@ -34,7 +36,10 @@ def _convert_messages(messages: list[dict]) -> list[dict]:
                             },
                         }
                     )
-            openai_msg: dict = {"role": "assistant", "content": " ".join(text_parts) if text_parts else None}
+            openai_msg: dict = {
+                "role": "assistant",
+                "content": " ".join(text_parts) if text_parts else None,
+            }
             if tool_calls:
                 openai_msg["tool_calls"] = tool_calls
             result.append(openai_msg)
@@ -84,7 +89,10 @@ class OpenAIProvider(LLMProvider):
         messages: list[dict],
         tools: list[dict],
     ) -> list[dict]:
-        openai_messages = [{"role": "system", "content": system_prompt}] + _convert_messages(messages)
+        openai_messages = [
+            {"role": "system", "content": system_prompt},
+            *_convert_messages(messages),
+        ]
         openai_tools = _convert_tools(tools)
 
         resp = await self._client.chat.completions.create(
@@ -104,7 +112,9 @@ class OpenAIProvider(LLMProvider):
                 try:
                     input_data = json.loads(tc.function.arguments)
                 except json.JSONDecodeError as e:
-                    raise ValueError(f"OpenAI returned malformed tool arguments for '{tc.function.name}': {e}") from e
+                    raise ValueError(
+                        f"OpenAI returned malformed tool arguments for '{tc.function.name}': {e}"
+                    ) from e
                 result.append(
                     {
                         "type": "tool_use",

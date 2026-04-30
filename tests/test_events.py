@@ -1,5 +1,4 @@
 from architect.agent.events import (
-    AgentEvent,
     ClarificationEvent,
     ConfirmationRequiredEvent,
     ReadOnlyToolEvent,
@@ -61,7 +60,9 @@ def test_fields_readable():
     reply = ReplyEvent(text="response")
     assert reply.text == "response"
 
-    confirm = ConfirmationRequiredEvent(tool_name="create_role", params={"name": "mod"}, tool_use_id="u1")
+    confirm = ConfirmationRequiredEvent(
+        tool_name="create_role", params={"name": "mod"}, tool_use_id="u1"
+    )
     assert confirm.tool_name == "create_role"
     assert confirm.params == {"name": "mod"}
     assert confirm.tool_use_id == "u1"

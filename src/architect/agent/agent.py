@@ -61,9 +61,9 @@ def _format_server_context(ctx: GuildContext) -> str:
 
 
 def _build_provider() -> LLMProvider:
-    from architect.config import settings
     from architect.agent.providers.claude import ClaudeProvider
     from architect.agent.providers.openai import OpenAIProvider
+    from architect.config import settings
 
     if settings.llm_provider == "claude":
         return ClaudeProvider(api_key=settings.llm_api_key, model=settings.llm_model)
@@ -71,7 +71,9 @@ def _build_provider() -> LLMProvider:
 
 
 class ArchitectAgent:
-    def __init__(self, provider: LLMProvider | None = None, plan_provider: LLMProvider | None = None) -> None:
+    def __init__(
+        self, provider: LLMProvider | None = None, plan_provider: LLMProvider | None = None
+    ) -> None:
         self._provider = provider if provider is not None else _build_provider()
         self._plan_provider = plan_provider
 
@@ -100,7 +102,11 @@ class ArchitectAgent:
         if guild_context:
             system += f"\n\nÉtat actuel du serveur :\n{guild_context}"
 
-        provider = self._plan_provider if use_plan_model and self._plan_provider is not None else self._provider
+        provider = (
+            self._plan_provider
+            if use_plan_model and self._plan_provider is not None
+            else self._provider
+        )
         blocks = await provider.call_with_tools(system, messages, get_tools())
 
         events: list[AgentEvent] = []
@@ -121,16 +127,24 @@ class ArchitectAgent:
                     if tool_name == "ask_clarification":
                         events.append(ClarificationEvent(question=params.get("question", "")))
                     elif tool_name == "generate_plan":
-                        events.append(PlanGeneratedEvent(
-                            title=params.get("title", ""),
-                            actions=params.get("actions", []),
-                            tool_use_id=tool_use_id,
-                        ))
+                        events.append(
+                            PlanGeneratedEvent(
+                                title=params.get("title", ""),
+                                actions=params.get("actions", []),
+                                tool_use_id=tool_use_id,
+                            )
+                        )
                 elif tool_name in READONLY_TOOLS:
-                    events.append(ReadOnlyToolEvent(tool_name=tool_name, params=params, tool_use_id=tool_use_id))
+                    events.append(
+                        ReadOnlyToolEvent(
+                            tool_name=tool_name, params=params, tool_use_id=tool_use_id
+                        )
+                    )
                 else:
                     events.append(
-                        ConfirmationRequiredEvent(tool_name=tool_name, params=params, tool_use_id=tool_use_id)
+                        ConfirmationRequiredEvent(
+                            tool_name=tool_name, params=params, tool_use_id=tool_use_id
+                        )
                     )
 
         return events

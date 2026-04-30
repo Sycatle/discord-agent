@@ -1,5 +1,7 @@
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+
 from architect.bot.context_command import ContextCommand
 from architect.storage.guild_context import GuildContext
 
@@ -45,6 +47,7 @@ async def test_context_set_refused_without_permission(tmp_path, monkeypatch):
 async def test_context_show_with_existing_context(tmp_path, monkeypatch):
     monkeypatch.setattr("architect.storage.guild_context.DATA_DIR", tmp_path / "data")
     from architect.storage.guild_context import save
+
     save(GuildContext(guild_id=42, name="CS2", objectives="Tournois", tone="Formel", rules=""))
     bot = MagicMock()
     cog = ContextCommand(bot)

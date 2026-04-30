@@ -5,14 +5,14 @@ from unittest.mock import AsyncMock, MagicMock
 import discord
 import pytest
 
+from architect.agent.events import AgentEvent, ReplyEvent
 from architect.bot.events import BotEvents, _chunk_text, _format_params, _serialize_guild
 from architect.bot.history import ConversationHistory
-from architect.agent.events import AgentEvent, ReplyEvent
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_guild(
     categories: list[str] | None = None,
@@ -23,19 +23,19 @@ def _make_guild(
     guild = MagicMock(spec=discord.Guild)
 
     cats = []
-    for name in (categories or []):
+    for name in categories or []:
         c = MagicMock(spec=discord.CategoryChannel)
         c.name = name
         cats.append(c)
 
     texts = []
-    for name in (text_channels or []):
+    for name in text_channels or []:
         c = MagicMock(spec=discord.TextChannel)
         c.name = name
         texts.append(c)
 
     voices = []
-    for name in (voice_channels or []):
+    for name in voice_channels or []:
         c = MagicMock(spec=discord.VoiceChannel)
         c.name = name
         voices.append(c)
@@ -44,19 +44,21 @@ def _make_guild(
     guild.channels = all_channels
 
     role_mocks = []
-    for name in (roles or []):
+    for name in roles or []:
         r = MagicMock(spec=discord.Role)
         r.name = name
         role_mocks.append(r)
     # always add @everyone
     everyone = MagicMock(spec=discord.Role)
     everyone.name = "@everyone"
-    guild.roles = role_mocks + [everyone]
+    guild.roles = [*role_mocks, everyone]
 
     return guild
 
 
-def _make_cog(agent_events: list[AgentEvent] | None = None) -> tuple[BotEvents, MagicMock, MagicMock]:
+def _make_cog(
+    agent_events: list[AgentEvent] | None = None,
+) -> tuple[BotEvents, MagicMock, MagicMock]:
     """Returns (cog, mock_bot, mock_agent)."""
     bot = MagicMock(spec=commands_Bot())
     bot.user = MagicMock(spec=discord.ClientUser)
@@ -75,12 +77,14 @@ def _make_cog(agent_events: list[AgentEvent] | None = None) -> tuple[BotEvents, 
 
 def commands_Bot():
     from discord.ext import commands
+
     return commands.Bot
 
 
 # ---------------------------------------------------------------------------
 # Unit tests — pure functions
 # ---------------------------------------------------------------------------
+
 
 def test_serialize_guild_all_fields():
     guild = _make_guild(
@@ -114,7 +118,9 @@ def test_serialize_guild_explicit_channels_param():
 
 
 def test_format_params_simple():
-    assert _format_params({"name": "Gaming", "mentionable": True}) == "name: Gaming, mentionable: True"
+    assert (
+        _format_params({"name": "Gaming", "mentionable": True}) == "name: Gaming, mentionable: True"
+    )
 
 
 def test_format_params_list_value():
@@ -129,6 +135,7 @@ def test_format_params_empty():
 # ---------------------------------------------------------------------------
 # on_message — basic filtering
 # ---------------------------------------------------------------------------
+
 
 def _make_message(
     *,
@@ -225,7 +232,7 @@ async def test_on_message_empty_prompt_after_mention():
     bot_user.id = 999
     cog.bot.user = bot_user
 
-    msg = _make_message(mentions_bot=True, content=f"<@999>")
+    msg = _make_message(mentions_bot=True, content="<@999>")
     msg.mentions = [bot_user]
     await cog.on_message(msg)
 
@@ -237,10 +244,12 @@ async def test_on_message_empty_prompt_after_mention():
 # PlanGeneratedEvent — batch execution
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_plan_generated_event_confirm_all():
     """PlanGeneratedEvent → PlanView shown → user clicks Confirm All → batch executed."""
     from unittest.mock import patch
+
     from architect.agent.events import PlanGeneratedEvent
     from architect.bot.views import PlanResult
 
@@ -278,15 +287,16 @@ async def test_plan_generated_event_confirm_all():
 
     thread = msg._mock_thread
     status_msg = msg._mock_status_msg
-    # thread.send: 1× initial status + 1× plan embed + 1× progress_msg
+    # thread.send: 1x initial status + 1x plan embed + 1x progress_msg
     assert thread.send.call_count == 3
-    # status_msg.edit: 1× "Plan généré..." + 1× final result
+    # status_msg.edit: 1x "Plan généré..." + 1x final result
     assert status_msg.edit.call_count == 2
 
 
 @pytest.mark.asyncio
 async def test_plan_generated_event_cancelled():
     from unittest.mock import patch
+
     from architect.agent.events import PlanGeneratedEvent
     from architect.bot.views import PlanResult
 
@@ -320,6 +330,7 @@ async def test_plan_generated_event_cancelled():
 # ---------------------------------------------------------------------------
 # _chunk_text — unit tests
 # ---------------------------------------------------------------------------
+
 
 def test_chunk_text_short_returns_single():
     text = "Bonjour !"
@@ -385,11 +396,10 @@ def test_chunk_text_empty_string():
 # ReplyEvent — always uses embed now
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_reply_event_short_text_uses_embed():
     """Short ReplyEvent (< 280 chars, no newline) now always sends embed."""
-    from unittest.mock import patch
-    from architect.agent.events import ReplyEvent
 
     evt = ReplyEvent(text="Bonjour !")
     cog, bot, agent = _make_cog([evt])
@@ -414,7 +424,6 @@ async def test_reply_event_short_text_uses_embed():
 @pytest.mark.asyncio
 async def test_reply_event_long_text_sends_multiple_chunks():
     """ReplyEvent with text > _EMBED_LIMIT sends multiple messages."""
-    from architect.agent.events import ReplyEvent
     from architect.bot.events import _EMBED_LIMIT
 
     long_text = "a" * (_EMBED_LIMIT + 1)
@@ -438,13 +447,14 @@ async def test_reply_event_long_text_sends_multiple_chunks():
     status_msg.edit.assert_called_once()
     edit_embed = status_msg.edit.call_args.kwargs.get("embed")
     assert isinstance(edit_embed, discord.Embed)
-    # thread.send: 1× initial status_msg + 1× overflow chunk
+    # thread.send: 1x initial status_msg + 1x overflow chunk
     assert thread.send.call_count == 2
     overflow_embed = thread.send.call_args.kwargs.get("embed")
     assert isinstance(overflow_embed, discord.Embed)
 
 
 # ── Atomic batch / rollback ─────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_execute_batch_atomic_rolls_back_creates_on_failure():
@@ -476,9 +486,7 @@ async def test_execute_batch_atomic_rolls_back_creates_on_failure():
         {"type": "create_role", "params": {"name": "BadRole"}},
     ]
 
-    success, errors, rolled_back = await cog._execute_batch(
-        actions, guild, progress, atomic=True
-    )
+    success, errors, rolled_back = await cog._execute_batch(actions, guild, progress, atomic=True)
 
     assert errors and "BadRole" in errors[0]
     assert rolled_back == 2  # Cat1 et ch1 annulés
@@ -516,9 +524,7 @@ async def test_execute_batch_non_atomic_continues_on_failure():
         {"type": "create_text_channel", "params": {"name": "C"}},
     ]
 
-    success, errors, rolled_back = await cog._execute_batch(
-        actions, guild, progress, atomic=False
-    )
+    success, errors, rolled_back = await cog._execute_batch(actions, guild, progress, atomic=False)
 
     assert success == 2
     assert len(errors) == 1

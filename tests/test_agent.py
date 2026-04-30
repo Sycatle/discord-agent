@@ -1,5 +1,6 @@
 import pytest
-from architect.agent.agent import ArchitectAgent, SYSTEM_PROMPT
+
+from architect.agent.agent import SYSTEM_PROMPT, ArchitectAgent
 from architect.agent.events import (
     ClarificationEvent,
     ConfirmationRequiredEvent,
@@ -16,7 +17,9 @@ class MockProvider(LLMProvider):
         self._blocks = blocks
         self.last_system_prompt: str = ""
 
-    async def call_with_tools(self, system_prompt: str, messages: list[dict], tools: list[dict]) -> list[dict]:
+    async def call_with_tools(
+        self, system_prompt: str, messages: list[dict], tools: list[dict]
+    ) -> list[dict]:
         self.last_system_prompt = system_prompt
         return self._blocks
 
@@ -40,7 +43,9 @@ async def test_mutation_tool_produces_confirmation_event():
     agent = ArchitectAgent(provider=provider)
     events = await agent.step(MESSAGES)
     assert events == [
-        ConfirmationRequiredEvent(tool_name="create_category", params={"name": "Gaming"}, tool_use_id="1")
+        ConfirmationRequiredEvent(
+            tool_name="create_category", params={"name": "Gaming"}, tool_use_id="1"
+        )
     ]
 
 
@@ -55,7 +60,14 @@ async def test_readonly_tool_produces_readonly_event():
 @pytest.mark.asyncio
 async def test_ask_clarification_tool_produces_clarification_event():
     provider = MockProvider(
-        [{"type": "tool_use", "id": "3", "name": "ask_clarification", "input": {"question": "Quel canal ?"}}]
+        [
+            {
+                "type": "tool_use",
+                "id": "3",
+                "name": "ask_clarification",
+                "input": {"question": "Quel canal ?"},
+            }
+        ]
     )
     agent = ArchitectAgent(provider=provider)
     events = await agent.step(MESSAGES)
@@ -67,7 +79,12 @@ async def test_multiple_blocks_returns_events_in_order():
     provider = MockProvider(
         [
             {"type": "text", "text": "Je vais créer le canal."},
-            {"type": "tool_use", "id": "10", "name": "create_text_channel", "input": {"name": "general"}},
+            {
+                "type": "tool_use",
+                "id": "10",
+                "name": "create_text_channel",
+                "input": {"name": "general"},
+            },
             {"type": "tool_use", "id": "11", "name": "list_roles", "input": {}},
         ]
     )
@@ -75,7 +92,9 @@ async def test_multiple_blocks_returns_events_in_order():
     events = await agent.step(MESSAGES)
     # Text preamble is skipped when tool calls follow to prevent bot layer from stopping
     assert events == [
-        ConfirmationRequiredEvent(tool_name="create_text_channel", params={"name": "general"}, tool_use_id="10"),
+        ConfirmationRequiredEvent(
+            tool_name="create_text_channel", params={"name": "general"}, tool_use_id="10"
+        ),
         ReadOnlyToolEvent(tool_name="list_roles", params={}, tool_use_id="11"),
     ]
 
@@ -107,18 +126,25 @@ async def test_no_guild_context_uses_base_system_prompt():
 
 @pytest.mark.asyncio
 async def test_generate_plan_tool_produces_plan_generated_event():
-    provider = MockProvider([{
-        "type": "tool_use",
-        "id": "p1",
-        "name": "generate_plan",
-        "input": {
-            "title": "Serveur Gaming",
-            "actions": [
-                {"type": "create_category", "params": {"name": "Général"}},
-                {"type": "create_text_channel", "params": {"name": "bienvenue", "category": "Général"}},
-            ]
-        }
-    }])
+    provider = MockProvider(
+        [
+            {
+                "type": "tool_use",
+                "id": "p1",
+                "name": "generate_plan",
+                "input": {
+                    "title": "Serveur Gaming",
+                    "actions": [
+                        {"type": "create_category", "params": {"name": "Général"}},
+                        {
+                            "type": "create_text_channel",
+                            "params": {"name": "bienvenue", "category": "Général"},
+                        },
+                    ],
+                },
+            }
+        ]
+    )
     agent = ArchitectAgent(provider=provider)
     events = await agent.step(MESSAGES)
     assert len(events) == 1
@@ -154,7 +180,6 @@ def test_system_prompt_contains_best_practices():
     assert "Best practices Discord" in SYSTEM_PROMPT
     assert "generate_plan" in SYSTEM_PROMPT
     assert "kebab-case" in SYSTEM_PROMPT
-
 
 
 @pytest.mark.asyncio

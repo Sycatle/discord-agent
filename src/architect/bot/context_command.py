@@ -10,28 +10,28 @@ from architect.storage.guild_context import GuildContext, load, save
 class ContextModal(discord.ui.Modal, title="Contexte du serveur"):
     def __init__(self, existing: GuildContext | None) -> None:
         super().__init__()
-        self.name_input = discord.ui.TextInput(
+        self.name_input: discord.ui.TextInput[ContextModal] = discord.ui.TextInput(
             label="Nom / description du serveur",
             style=discord.TextStyle.paragraph,
             required=False,
             default=existing.name if existing else "",
             max_length=1000,
         )
-        self.objectives_input = discord.ui.TextInput(
+        self.objectives_input: discord.ui.TextInput[ContextModal] = discord.ui.TextInput(
             label="Objectifs & use cases",
             style=discord.TextStyle.paragraph,
             required=False,
             default=existing.objectives if existing else "",
             max_length=1000,
         )
-        self.tone_input = discord.ui.TextInput(
+        self.tone_input: discord.ui.TextInput[ContextModal] = discord.ui.TextInput(
             label="Ton & style souhaité",
             style=discord.TextStyle.paragraph,
             required=False,
             default=existing.tone if existing else "",
             max_length=500,
         )
-        self.rules_input = discord.ui.TextInput(
+        self.rules_input: discord.ui.TextInput[ContextModal] = discord.ui.TextInput(
             label="Règles & contraintes",
             style=discord.TextStyle.paragraph,
             required=False,
@@ -73,7 +73,15 @@ class ContextCommand(commands.Cog):
 
     @context_group.command(name="set", description="Définir le contexte du serveur (admin)")
     async def context_set(self, interaction: discord.Interaction) -> None:
-        if not interaction.user.guild_permissions.manage_guild:
+        if interaction.guild_id is None:
+            await interaction.response.send_message(
+                "Cette commande doit être utilisée dans un serveur.", ephemeral=True
+            )
+            return
+        # In a guild context, interaction.user is always a discord.Member which has
+        # guild_permissions; the User branch of the union doesn't apply at runtime.
+        guild_perms = getattr(interaction.user, "guild_permissions", None)
+        if guild_perms is None or not guild_perms.manage_guild:
             await interaction.response.send_message(
                 "Permission requise : **Gérer le serveur**.", ephemeral=True
             )
@@ -83,6 +91,11 @@ class ContextCommand(commands.Cog):
 
     @context_group.command(name="show", description="Afficher le contexte actuel du serveur")
     async def context_show(self, interaction: discord.Interaction) -> None:
+        if interaction.guild_id is None:
+            await interaction.response.send_message(
+                "Cette commande doit être utilisée dans un serveur.", ephemeral=True
+            )
+            return
         ctx = load(interaction.guild_id)
         if ctx is None:
             await interaction.response.send_message(
