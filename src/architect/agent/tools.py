@@ -32,9 +32,7 @@ READONLY_TOOLS: frozenset[str] = frozenset(
 
 META_TOOLS: frozenset[str] = frozenset({"ask_clarification", "generate_plan"})
 
-MUTATION_TOOLS: frozenset[str] = frozenset(
-    name for name in HANDLERS if name not in READONLY_TOOLS
-)
+MUTATION_TOOLS: frozenset[str] = frozenset(name for name in HANDLERS if name not in READONLY_TOOLS)
 
 
 # ── Meta tools ──────────────────────────────────────────────────────────────

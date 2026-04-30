@@ -138,11 +138,14 @@ omit = [
     "src/architect/main.py",
     "src/architect/__init__.py",
     "src/architect/logging_setup.py",
+    # bot.py is the thin discord.py setup wiring (intents, cog registration,
+    # tree.sync). It has no business logic worth unit-testing — exercising
+    # it requires a real Discord gateway connection. Smoke-tested manually.
+    "src/architect/bot/bot.py",
 ]
 
 [tool.coverage.report]
-# Will be raised to 90 in Phase 6 once handler tests are split out and gaps filled.
-fail_under = 60
+fail_under = 90
 show_missing = true
 skip_covered = false
 exclude_lines = [

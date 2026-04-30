@@ -20,11 +20,7 @@ _TRIGGER_TYPE_MAP = {
     "mention_spam": discord.AutoModRuleTriggerType.mention_spam,
 }
 
-_PRESET_MAP = {
-    "profanity": discord.AutoModPresets.profanity,
-    "sexual_content": discord.AutoModPresets.sexual_content,
-    "slurs": discord.AutoModPresets.slurs,
-}
+_PRESET_FLAG_NAMES = {"profanity", "sexual_content", "slurs"}
 
 _EVENT_TYPE_MAP = {
     "message_send": discord.AutoModRuleEventType.message_send,
@@ -41,9 +37,10 @@ def _build_trigger(params: CreateAutoModRuleParams) -> discord.AutoModTrigger:
     if params.allow_list:
         kwargs["allow_list"] = params.allow_list
     if params.presets:
-        presets = discord.AutoModPresets.none()
-        for p in params.presets:
-            presets |= _PRESET_MAP[p]
+        # AutoModPresets flags are descriptors, not values — assemble the
+        # composite flag via the kwargs constructor instead of bitwise-or
+        # on the descriptors themselves.
+        presets = discord.AutoModPresets(**dict.fromkeys(params.presets, True))
         kwargs["presets"] = presets
     if params.mention_limit is not None:
         kwargs["mention_limit"] = params.mention_limit
