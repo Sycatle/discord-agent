@@ -9,7 +9,6 @@ resolution-markers = [
 
 [[package]]
 name = "ai-discord-architect"
-version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },

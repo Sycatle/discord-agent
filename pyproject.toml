@@ -4,7 +4,7 @@ description = "Discord bot driven by an AI agent — natural language to validat
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.12"
-version = "0.1.0"
+dynamic = ["version"]
 dependencies = [
     "discord.py>=2.4",
     "pydantic>=2.7",
@@ -19,6 +19,9 @@ architect = "architect.main:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/architect/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/architect"]
