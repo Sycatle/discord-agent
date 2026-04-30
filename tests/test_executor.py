@@ -745,3 +745,57 @@ async def test_edit_member_voice_ops():
     assert call_kwargs["deafen"] is False
     assert call_kwargs["voice_channel"] is voice_ch
     assert "999" in result
+
+
+# ── check_bot_permissions + strict mode ──────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_check_bot_permissions_lists_granted_and_missing():
+    guild = _make_guild()
+    me = MagicMock()
+    perms = MagicMock()
+    perms.manage_channels = True
+    perms.manage_roles = True
+    perms.manage_webhooks = False
+    perms.manage_guild = False
+    perms.manage_events = True
+    perms.create_instant_invite = True
+    perms.moderate_members = False
+    me.guild_permissions = perms
+    guild.me = me
+
+    executor = Executor()
+    result = await executor.execute("check_bot_permissions", {}, guild)
+    assert "manage_channels" in result
+    assert "manage_webhooks" in result
+    assert "manquantes" in result.lower()
+
+
+@pytest.mark.asyncio
+async def test_strict_mode_raises_on_missing_permission():
+    from architect.executor.executor import ExecuteError
+
+    guild = _make_guild()
+    me = MagicMock()
+    perms = MagicMock()
+    perms.manage_channels = False
+    me.guild_permissions = perms
+    guild.me = me
+
+    executor = Executor()
+    with pytest.raises(ExecuteError, match="manage_channels"):
+        await executor.execute("create_category", {"name": "X"}, guild, strict=True)
+
+
+@pytest.mark.asyncio
+async def test_non_strict_returns_error_string_on_missing_permission():
+    guild = _make_guild()
+    me = MagicMock()
+    perms = MagicMock()
+    perms.manage_channels = False
+    me.guild_permissions = perms
+    guild.me = me
+
+    executor = Executor()
+    result = await executor.execute("create_category", {"name": "X"}, guild)
+    assert "Permission manquante" in result

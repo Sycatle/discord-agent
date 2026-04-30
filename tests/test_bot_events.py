@@ -268,7 +268,7 @@ async def test_plan_generated_event_confirm_all():
         mock_view_instance.wait_result = AsyncMock(return_value=PlanResult.CONFIRMED_ALL)
         MockPlanView.return_value = mock_view_instance
 
-        cog._execute_batch = AsyncMock(return_value=(2, []))
+        cog._execute_batch = AsyncMock(return_value=(2, [], 0))
 
         await cog.on_message(msg)
 
@@ -442,3 +442,84 @@ async def test_reply_event_long_text_sends_multiple_chunks():
     assert thread.send.call_count == 2
     overflow_embed = thread.send.call_args.kwargs.get("embed")
     assert isinstance(overflow_embed, discord.Embed)
+
+
+# ── Atomic batch / rollback ─────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_execute_batch_atomic_rolls_back_creates_on_failure():
+    """En mode atomic, l'erreur sur action #3 doit rollback les 2 créations précédentes."""
+    from architect.executor.executor import ExecuteError
+
+    cog, _, _ = _make_cog()
+
+    # Executor renvoie OK pour les 2 premières, erreur sur la 3ème.
+    call_log: list[tuple[str, dict]] = []
+
+    async def fake_execute(tool_name, params, guild, *, strict=False):
+        call_log.append((tool_name, params))
+        if tool_name == "create_role" and params.get("name") == "BadRole":
+            if strict:
+                raise ExecuteError("Permission manquante : `manage_roles`.")
+            return "Permission manquante : `manage_roles`."
+        return f"{tool_name} ok"
+
+    cog._executor.execute = AsyncMock(side_effect=fake_execute)
+
+    guild = _make_guild()
+    progress = MagicMock()
+    progress.edit = AsyncMock()
+
+    actions = [
+        {"type": "create_category", "params": {"name": "Cat1"}},
+        {"type": "create_text_channel", "params": {"name": "ch1"}},
+        {"type": "create_role", "params": {"name": "BadRole"}},
+    ]
+
+    success, errors, rolled_back = await cog._execute_batch(
+        actions, guild, progress, atomic=True
+    )
+
+    assert errors and "BadRole" in errors[0]
+    assert rolled_back == 2  # Cat1 et ch1 annulés
+    assert success == 0  # 2 créations - 2 rollback
+
+    inverse_calls = [c for c in call_log if c[0] in ("delete_channel", "delete_role")]
+    assert len(inverse_calls) == 2
+    # Ordre inverse : ch1 d'abord, puis Cat1
+    assert inverse_calls[0] == ("delete_channel", {"channel": "ch1"})
+    assert inverse_calls[1] == ("delete_channel", {"channel": "Cat1"})
+
+
+@pytest.mark.asyncio
+async def test_execute_batch_non_atomic_continues_on_failure():
+    """Sans atomic, on continue après une erreur, pas de rollback."""
+    from architect.executor.executor import ExecuteError
+
+    cog, _, _ = _make_cog()
+
+    async def fake_execute(tool_name, params, guild, *, strict=False):
+        if params.get("name") == "Bad":
+            if strict:
+                raise ExecuteError("boom")
+            return "boom"
+        return "ok"
+
+    cog._executor.execute = AsyncMock(side_effect=fake_execute)
+    guild = _make_guild()
+    progress = MagicMock()
+    progress.edit = AsyncMock()
+
+    actions = [
+        {"type": "create_category", "params": {"name": "A"}},
+        {"type": "create_role", "params": {"name": "Bad"}},
+        {"type": "create_text_channel", "params": {"name": "C"}},
+    ]
+
+    success, errors, rolled_back = await cog._execute_batch(
+        actions, guild, progress, atomic=False
+    )
+
+    assert success == 2
+    assert len(errors) == 1
+    assert rolled_back == 0

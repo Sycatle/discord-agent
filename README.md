@@ -11,8 +11,8 @@ Bot Discord piloté par un agent IA. Tu décris ce que tu veux en langage nature
 
 1. **Generate** — l'agent (Claude ou OpenAI) traduit ta demande en plan JSON typé via tool calling
 2. **Preview** — un embed Discord liste chaque action avant exécution
-3. **Confirm** — `Tout confirmer`, `Réviser` (action par action), ou `Annuler`
-4. **Execute** — l'`Executor` applique les actions séquentiellement avec rapport d'erreurs
+3. **Confirm** — `Tout confirmer`, `Atomic` (rollback automatique si une action échoue), `Réviser` (action par action), ou `Annuler`
+4. **Execute** — l'`Executor` applique les actions séquentiellement, vérifie les permissions du bot avant chaque mutation, et rapporte les erreurs Discord proprement (jamais de stacktrace dans Discord)
 
 Aucune mutation Discord ne se produit sans approbation humaine.
 
@@ -27,7 +27,11 @@ Le bot pilote la quasi-totalité de l'API Discord serveur (27 actions whiteliste
 - **AutoMod** — règles de modération automatique (création, edit, delete)
 - **Server settings** — nom, icône, locale, mode community, welcome screen
 
-L'agent peut aussi **lire** l'état du serveur (channels, rôles, membres, invites, webhooks, events, automod) avant de proposer un plan, et demander des clarifications si la demande est ambiguë.
+L'agent peut aussi **lire** l'état du serveur (channels, rôles, membres, invites, webhooks, events, automod) avant de proposer un plan, **vérifier ses propres permissions Discord** (`check_bot_permissions`) pour éviter les plans qui échoueront, et demander des clarifications si la demande est ambiguë.
+
+## Observabilité
+
+Les événements clés (plan généré, plan exécuté, erreurs Discord) sont émis en JSON Lines structurés dans `data/architect.jsonl` (rotation auto à 10 MB, 5 backups). En production : `tail -f data/architect.jsonl | jq` pour suivre, ou grep par `event` (`plan_executed`, `action_failed`, etc.).
 
 ## Stack
 

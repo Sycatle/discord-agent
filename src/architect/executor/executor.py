@@ -42,29 +42,82 @@ _REQUIRED_PERMISSIONS: dict[str, str] = {
 }
 
 
+# Pour le mode atomic batch : à chaque action create_* qu'on sait inverser
+# déterministiquement, on associe l'action de suppression et la traduction
+# des paramètres. Les actions sans entrée ici (create_invite, edit_*, etc.)
+# ne sont pas rollback-ables et seront ignorées par le rollback.
+ROLLBACK_ACTIONS: dict[str, tuple[str, dict[str, str]]] = {
+    "create_category": ("delete_channel", {"channel": "name"}),
+    "create_text_channel": ("delete_channel", {"channel": "name"}),
+    "create_voice_channel": ("delete_channel", {"channel": "name"}),
+    "create_forum_channel": ("delete_channel", {"channel": "name"}),
+    "create_stage_channel": ("delete_channel", {"channel": "name"}),
+    "create_role": ("delete_role", {"role": "name"}),
+    "create_webhook": ("delete_webhook", {"webhook": "name"}),
+    "create_scheduled_event": ("delete_scheduled_event", {"event": "name"}),
+    "create_automod_rule": ("delete_automod_rule", {"rule": "name"}),
+}
+
+
+class ExecuteError(Exception):
+    """Erreur métier (permission manquante, Discord 403/404/HTTPException).
+
+    Levée par execute(strict=True) pour permettre au batch coordinator de
+    distinguer succès et échec — le mode non-strict retourne le message
+    en string pour rester compatible avec la boucle agentic.
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message
+
+
 class Executor:
-    async def execute(self, tool_name: str, params: dict, guild: discord.Guild) -> str:
+    async def execute(
+        self,
+        tool_name: str,
+        params: dict,
+        guild: discord.Guild,
+        *,
+        strict: bool = False,
+    ) -> str:
         """Execute a single tool call and return a result string.
 
         Wraps Discord API errors (Forbidden/NotFound/HTTPException) into
         readable messages and pre-checks bot permissions for mutating tools.
+
+        En mode strict=True, les erreurs Discord et permissions sont relevées
+        comme ExecuteError au lieu d'être retournées sous forme de string —
+        utilisé par _execute_batch pour comptabiliser correctement les échecs.
         """
         required = _REQUIRED_PERMISSIONS.get(tool_name)
         if required is not None and guild.me is not None:
             if not getattr(guild.me.guild_permissions, required, False):
-                return f"Permission manquante : `{required}`. Le bot ne peut pas exécuter `{tool_name}`."
+                msg = f"Permission manquante : `{required}`. Le bot ne peut pas exécuter `{tool_name}`."
+                if strict:
+                    raise ExecuteError(msg)
+                return msg
 
         try:
             return await self._dispatch(tool_name, params, guild)
         except discord.Forbidden as e:
             logger.warning("Discord Forbidden on %s: %s", tool_name, e)
-            return f"Action refusée par Discord (permissions ou hiérarchie) : `{tool_name}`."
+            msg = f"Action refusée par Discord (permissions ou hiérarchie) : `{tool_name}`."
+            if strict:
+                raise ExecuteError(msg) from e
+            return msg
         except discord.NotFound as e:
             logger.warning("Discord NotFound on %s: %s", tool_name, e)
-            return f"Entité introuvable (peut-être supprimée entre la preview et l'exécution) : `{tool_name}`."
+            msg = f"Entité introuvable (peut-être supprimée entre la preview et l'exécution) : `{tool_name}`."
+            if strict:
+                raise ExecuteError(msg) from e
+            return msg
         except discord.HTTPException as e:
             logger.exception("Discord HTTPException on %s", tool_name)
-            return f"Erreur Discord ({e.status}) sur `{tool_name}` : {e.text or e}"
+            msg = f"Erreur Discord ({e.status}) sur `{tool_name}` : {e.text or e}"
+            if strict:
+                raise ExecuteError(msg) from e
+            return msg
 
     async def _dispatch(self, tool_name: str, params: dict, guild: discord.Guild) -> str:
         match tool_name:
@@ -586,6 +639,22 @@ class Executor:
                     return "Aucun événement planifié."
                 lines = [f"- {e.name} ({e.entity_type}) — {e.start_time}" for e in events]
                 return "Événements:\n" + "\n".join(lines)
+
+            case "check_bot_permissions":
+                me = guild.me
+                if me is None:
+                    return "Impossible de récupérer les permissions du bot (membership manquant)."
+                perms = me.guild_permissions
+                # Liste unique des permissions requises sur l'ensemble des tools
+                required_perms = sorted(set(_REQUIRED_PERMISSIONS.values()))
+                granted = [p for p in required_perms if getattr(perms, p, False)]
+                missing = [p for p in required_perms if not getattr(perms, p, False)]
+                lines = [f"Permissions accordées : {', '.join(granted) or 'aucune'}"]
+                if missing:
+                    lines.append(f"Permissions manquantes : {', '.join(missing)}")
+                else:
+                    lines.append("Toutes les permissions requises sont présentes.")
+                return "\n".join(lines)
 
             case "list_automod_rules":
                 rules = await guild.fetch_auto_moderation_rules()

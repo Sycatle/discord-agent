@@ -62,6 +62,7 @@ class ConfirmView(discord.ui.View):
 
 class PlanResult(enum.Enum):
     CONFIRMED_ALL = "confirmed_all"
+    CONFIRMED_ATOMIC = "confirmed_atomic"
     REVIEW = "review"
     CANCELLED = "cancelled"
 
@@ -167,6 +168,15 @@ class PlanView(discord.ui.View):
             return
         await interaction.response.defer()
         self._get_future().set_result(PlanResult.CONFIRMED_ALL)
+        self.stop()
+
+    @discord.ui.button(label="Atomic (rollback si erreur)", style=discord.ButtonStyle.primary, emoji="⚛")
+    async def confirm_atomic(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        if not self._is_invoker(interaction):
+            await interaction.response.send_message("Seul l'auteur peut utiliser ce bouton.", ephemeral=True)
+            return
+        await interaction.response.defer()
+        self._get_future().set_result(PlanResult.CONFIRMED_ATOMIC)
         self.stop()
 
     @discord.ui.button(label="Réviser", style=discord.ButtonStyle.secondary, emoji="🔍")

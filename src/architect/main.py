@@ -9,6 +9,9 @@ logging.basicConfig(
 
 from .bot.bot import ArchitectBot
 from .config import settings
+from .logging_setup import setup_jsonl_handler
+
+setup_jsonl_handler(settings.data_dir)
 
 
 async def _run() -> None:

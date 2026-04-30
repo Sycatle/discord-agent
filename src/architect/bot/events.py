@@ -17,7 +17,7 @@ from architect.agent.events import (
 )
 from architect.bot.history import ConversationHistory
 from architect.bot.views import ConfirmResult, ConfirmView, PlanResult, PlanView
-from architect.executor.executor import Executor
+from architect.executor.executor import ExecuteError, Executor, ROLLBACK_ACTIONS
 from architect.storage.guild_context import GuildContext, load as load_guild_context
 
 MAX_STEPS = 10
@@ -262,6 +262,18 @@ class BotEvents(commands.Cog):
                         break
 
                 elif isinstance(event, PlanGeneratedEvent):
+                    logger.info(
+                        "plan generated: %s (%d actions)",
+                        event.title,
+                        len(event.actions),
+                        extra={
+                            "event": "plan_generated",
+                            "guild_id": guild.id,
+                            "channel_id": channel_id,
+                            "user_id": message.author.id,
+                            "action_count": len(event.actions),
+                        },
+                    )
                     await status_msg.edit(
                         embed=_make_embed("Plan généré, en attente de validation...", color=discord.Color.orange())
                     )
@@ -297,12 +309,33 @@ class BotEvents(commands.Cog):
                             result_str += f"\nErreurs :\n{error_block}"
                         color = discord.Color.green() if not errors else discord.Color.orange()
                         await status_msg.edit(embed=_make_embed(result_str, color=color))
-                    else:  # CONFIRMED_ALL
+                    else:  # CONFIRMED_ALL or CONFIRMED_ATOMIC
+                        atomic = plan_result == PlanResult.CONFIRMED_ATOMIC
                         progress_msg = await thread.send(
                             embed=_make_embed(f"Exécution en cours... 0/{len(event.actions)}", color=discord.Color.orange())
                         )
-                        success, errors = await self._execute_batch(event.actions, guild, progress_msg)
+                        success, errors, rolled_back = await self._execute_batch(
+                            event.actions, guild, progress_msg, atomic=atomic
+                        )
+                        logger.info(
+                            "plan executed: %d/%d ok, %d rolled back",
+                            success,
+                            len(event.actions),
+                            rolled_back,
+                            extra={
+                                "event": "plan_executed",
+                                "guild_id": guild.id,
+                                "channel_id": channel_id,
+                                "user_id": message.author.id,
+                                "action_count": len(event.actions),
+                                "success": success,
+                                "rolled_back": rolled_back,
+                                "errors": len(errors),
+                            },
+                        )
                         result_str = f"{success}/{len(event.actions)} actions exécutées."
+                        if rolled_back:
+                            result_str += f"\n{rolled_back} action(s) annulée(s) par rollback atomic."
                         if errors:
                             displayed_errors = errors[:_MAX_ERRORS_DISPLAY]
                             error_block = "\n".join(f"• {e}" for e in displayed_errors)
@@ -338,24 +371,43 @@ class BotEvents(commands.Cog):
         actions: list[dict],
         guild: discord.Guild,
         progress_msg: discord.Message,
-    ) -> tuple[int, list[str]]:
+        atomic: bool = False,
+    ) -> tuple[int, list[str], int]:
         """
         Execute all actions sequentially. Updates progress_msg embed every 5 actions or on errors.
-        Returns (success_count, errors).
+
+        En mode atomic=True, à la première erreur les créations déjà effectuées
+        sont annulées dans l'ordre inverse (delete_channel, delete_role, etc.) —
+        les actions sans inverse déterministique (edit_*, delete_*, create_invite)
+        sont laissées telles quelles.
+
+        Returns (success_count, errors, rollback_count).
         """
         success_count = 0
         errors: list[str] = []
+        completed: list[dict] = []  # actions réussies, dans l'ordre, pour rollback
         total = len(actions)
+        stopped_early = False
 
         for i, action in enumerate(actions, 1):
             action_type = action.get("type", "")
             params = action.get("params", {})
             try:
-                await self._executor.execute(action_type, params, guild)
+                await self._executor.execute(action_type, params, guild, strict=True)
                 success_count += 1
-            except Exception as e:
-                logger.exception("action %s failed in batch", action_type)
+                completed.append(action)
+            except (ExecuteError, ValueError, NotImplementedError) as e:
+                logger.exception("action %s failed in batch", action_type, extra={"event": "action_failed", "tool_name": action_type})
                 errors.append(f"{action_type}({params.get('name', '?')}): {e}")
+                if atomic:
+                    stopped_early = True
+                    break
+            except Exception as e:
+                logger.exception("unexpected error on %s in batch", action_type)
+                errors.append(f"{action_type}({params.get('name', '?')}): {e}")
+                if atomic:
+                    stopped_early = True
+                    break
 
             # Update progress every 5 actions or on last action
             if i % 5 == 0 or i == total:
@@ -368,7 +420,40 @@ class BotEvents(commands.Cog):
                 except discord.HTTPException:
                     logger.warning("progress_msg edit failed, continuing")
 
-        return success_count, errors
+        rollback_count = 0
+        if stopped_early and atomic and completed:
+            try:
+                await progress_msg.edit(
+                    embed=discord.Embed(
+                        description=f"Erreur — rollback en cours de {len(completed)} actions...",
+                        color=discord.Color.red(),
+                    )
+                )
+            except discord.HTTPException:
+                pass
+            rollback_count = await self._rollback(completed, guild)
+
+        return success_count - rollback_count, errors, rollback_count
+
+    async def _rollback(self, completed: list[dict], guild: discord.Guild) -> int:
+        """Annule les créations en ordre inverse. Retourne le nombre annulé."""
+        count = 0
+        for action in reversed(completed):
+            action_type = action.get("type", "")
+            params = action.get("params", {})
+            inverse = ROLLBACK_ACTIONS.get(action_type)
+            if inverse is None:
+                continue
+            inverse_type, param_map = inverse
+            inverse_params = {target: params.get(source) for target, source in param_map.items()}
+            if any(v is None for v in inverse_params.values()):
+                continue
+            try:
+                await self._executor.execute(inverse_type, inverse_params, guild, strict=True)
+                count += 1
+            except Exception:
+                logger.exception("rollback failed for %s → %s", action_type, inverse_type)
+        return count
 
     async def _review_batch(
         self,
@@ -416,7 +501,7 @@ class BotEvents(commands.Cog):
                 progress_msg = await dest.send(
                     embed=_make_embed(f"Exécution en cours... 0/{len(remaining)}", color=discord.Color.orange())
                 )
-                batch_success, batch_errors = await self._execute_batch(remaining, guild, progress_msg)
+                batch_success, batch_errors, _ = await self._execute_batch(remaining, guild, progress_msg)
                 success_count += batch_success
                 errors.extend(batch_errors)
                 break

@@ -3,6 +3,7 @@ READONLY_TOOLS: frozenset[str] = frozenset({
     "get_member_roles", "get_server_info",
     "list_invites", "list_webhooks",
     "list_scheduled_events", "list_automod_rules",
+    "check_bot_permissions",
 })
 
 META_TOOLS: frozenset[str] = frozenset({"ask_clarification", "generate_plan"})
@@ -619,6 +620,16 @@ def get_tools() -> list[dict]:
         {
             "name": "list_automod_rules",
             "description": "Liste les règles AutoMod du serveur.",
+            "input_schema": {"type": "object", "properties": {}},
+        },
+        {
+            "name": "check_bot_permissions",
+            "description": (
+                "Vérifie les permissions Discord actuellement accordées au bot. "
+                "À appeler avant generate_plan si le plan implique des mutations risquant "
+                "d'échouer (gestion de rôles, AutoMod, paramètres serveur). Évite de proposer "
+                "un plan qui échouera au moment de l'exécution."
+            ),
             "input_schema": {"type": "object", "properties": {}},
         },
         # ── Meta ──────────────────────────────────────────────────────────────
