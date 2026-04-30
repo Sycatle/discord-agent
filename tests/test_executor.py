@@ -150,7 +150,8 @@ async def test_set_channel_permissions():
             {
                 "channel": "general",
                 "role": "Admin",
-                "overwrite": {"read_messages": True, "send_messages": False},
+                "allow": ["read_messages"],
+                "deny": ["send_messages"],
             },
             guild,
         )

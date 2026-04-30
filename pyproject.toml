@@ -70,7 +70,8 @@ ignore = [
     "B008",     # function call in default arg is fine in fixtures
 ]
 "src/architect/agent/tools.py" = ["E501", "RUF003"]
-"src/architect/executor/executor.py" = ["PLR0911", "PLR0912", "PLR0915", "RUF003", "SIM102", "SIM105", "PLW2901"]
+"src/architect/executor/executor.py" = ["SIM102"]
+"src/architect/executor/handlers/server.py" = ["PLR0912"]
 "src/architect/bot/events.py" = ["PLR0912", "PLR0915", "RUF003", "PLC0415", "B008", "PLW2901", "SIM105"]
 "src/architect/bot/views.py" = ["ARG002", "B008", "PLC0415"]  # discord.ui signatures and Color defaults
 "src/architect/bot/bot.py" = ["ARG002"]  # discord overrides args/kwargs we don't use
@@ -93,18 +94,34 @@ exclude = ["tests/", "build/", ".venv/"]
 # as the refactor lands. Tracked: executor.py (Phase 4), tools.py (Phase 5),
 # bot/events.py (Phase 4), providers (Phase 4).
 [[tool.mypy.overrides]]
+# Modules with heavy discord.py SDK interaction. The SDK's own type stubs are
+# loose enough that strict mypy raises many false-positives on attribute
+# narrowing; we relax the worst offenders here rather than scatter
+# # type: ignore[attr-defined] across dozens of call sites. The tools.py
+# module remains until Phase 5 rewrites it from Pydantic schemas.
 module = [
-    "architect.executor.executor",
     "architect.agent.tools",
     "architect.agent.providers.*",
     "architect.bot.events",
     "architect.bot.bot",
     "architect.agent.agent",
+    "architect.executor.handlers.*",
 ]
 disallow_untyped_defs = false
 disallow_any_generics = false
 warn_return_any = false
-disable_error_code = ["union-attr", "arg-type", "dict-item", "type-arg", "no-untyped-def", "assignment", "attr-defined", "no-any-return", "var-annotated", "return-value"]
+disable_error_code = [
+    "union-attr",
+    "arg-type",
+    "dict-item",
+    "type-arg",
+    "no-untyped-def",
+    "assignment",
+    "attr-defined",
+    "no-any-return",
+    "var-annotated",
+    "return-value",
+]
 
 [[tool.mypy.overrides]]
 module = ["discord.*"]
