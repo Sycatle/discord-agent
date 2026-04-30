@@ -64,8 +64,11 @@ def _chunk_text(text: str, limit: int = _EMBED_LIMIT) -> list[str]:
                         if current:
                             chunks.append(current)
                         while len(line) > limit:
-                            chunks.append(line[:limit])  # TODO: word-boundary fallback (URLs coupées)
-                            line = line[limit:]
+                            cut = line.rfind(" ", 0, limit)
+                            if cut <= 0:
+                                cut = limit  # no whitespace → hard cut
+                            chunks.append(line[:cut])
+                            line = line[cut:]
                         current = line
     if current:
         chunks.append(current)

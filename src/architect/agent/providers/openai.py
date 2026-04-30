@@ -53,8 +53,7 @@ def _convert_messages(messages: list[dict]) -> list[dict]:
                     # fallback: treat as plain text
                     result.append({"role": "user", "content": block.get("text", "")})
         else:
-            # TODO: full OpenAI support for other roles
-            result.append({"role": role, "content": str(content)})
+            raise ValueError(f"Unsupported message role for OpenAI conversion: {role!r}")
 
     return result
 
