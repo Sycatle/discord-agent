@@ -1,14 +1,72 @@
 from __future__ import annotations
 
+import logging
 import re
 from datetime import datetime, timedelta
 
 import discord
 
+logger = logging.getLogger(__name__)
+
+
+# Permission requise par tool. Vérifiée avant l'appel Discord pour produire un
+# message clair au lieu d'un 403. Les tools read-only sont absents → pas de check.
+_REQUIRED_PERMISSIONS: dict[str, str] = {
+    "create_category": "manage_channels",
+    "create_text_channel": "manage_channels",
+    "create_voice_channel": "manage_channels",
+    "create_forum_channel": "manage_channels",
+    "create_stage_channel": "manage_channels",
+    "edit_channel": "manage_channels",
+    "delete_channel": "manage_channels",
+    "set_channel_permissions": "manage_channels",
+    "create_invite": "create_instant_invite",
+    "delete_invite": "manage_channels",
+    "create_webhook": "manage_webhooks",
+    "edit_webhook": "manage_webhooks",
+    "delete_webhook": "manage_webhooks",
+    "create_role": "manage_roles",
+    "edit_role": "manage_roles",
+    "delete_role": "manage_roles",
+    "assign_role": "manage_roles",
+    "remove_role": "manage_roles",
+    "edit_member": "moderate_members",
+    "create_scheduled_event": "manage_events",
+    "edit_scheduled_event": "manage_events",
+    "delete_scheduled_event": "manage_events",
+    "create_automod_rule": "manage_guild",
+    "edit_automod_rule": "manage_guild",
+    "delete_automod_rule": "manage_guild",
+    "edit_server": "manage_guild",
+    "edit_welcome_screen": "manage_guild",
+}
+
 
 class Executor:
     async def execute(self, tool_name: str, params: dict, guild: discord.Guild) -> str:
-        """Execute a single tool call and return a result string."""
+        """Execute a single tool call and return a result string.
+
+        Wraps Discord API errors (Forbidden/NotFound/HTTPException) into
+        readable messages and pre-checks bot permissions for mutating tools.
+        """
+        required = _REQUIRED_PERMISSIONS.get(tool_name)
+        if required is not None and guild.me is not None:
+            if not getattr(guild.me.guild_permissions, required, False):
+                return f"Permission manquante : `{required}`. Le bot ne peut pas exécuter `{tool_name}`."
+
+        try:
+            return await self._dispatch(tool_name, params, guild)
+        except discord.Forbidden as e:
+            logger.warning("Discord Forbidden on %s: %s", tool_name, e)
+            return f"Action refusée par Discord (permissions ou hiérarchie) : `{tool_name}`."
+        except discord.NotFound as e:
+            logger.warning("Discord NotFound on %s: %s", tool_name, e)
+            return f"Entité introuvable (peut-être supprimée entre la preview et l'exécution) : `{tool_name}`."
+        except discord.HTTPException as e:
+            logger.exception("Discord HTTPException on %s", tool_name)
+            return f"Erreur Discord ({e.status}) sur `{tool_name}` : {e.text or e}"
+
+    async def _dispatch(self, tool_name: str, params: dict, guild: discord.Guild) -> str:
         match tool_name:
             # ── Existing ──────────────────────────────────────────────────────
             case "create_category":
@@ -84,6 +142,20 @@ class Executor:
                     kwargs["available_tags"] = [
                         discord.ForumTag(name=t) for t in params["available_tags"]
                     ]
+                if params.get("require_tag") is not None:
+                    kwargs["require_tag"] = params["require_tag"]
+                if (v := params.get("default_sort_order")) is not None:
+                    sort_map = {
+                        "latest_activity": discord.ForumOrderType.latest_activity,
+                        "creation_date": discord.ForumOrderType.creation_date,
+                    }
+                    kwargs["default_sort_order"] = sort_map[v]
+                if (v := params.get("default_forum_layout")) is not None:
+                    layout_map = {
+                        "list": discord.ForumLayoutType.list_view,
+                        "gallery": discord.ForumLayoutType.gallery_view,
+                    }
+                    kwargs["default_layout"] = layout_map[v]
                 await guild.create_forum(**kwargs)
                 return f"Forum channel created: #{name}"
 
@@ -434,6 +506,15 @@ class Executor:
                     kwargs["preferred_locale"] = discord.Locale(v.replace("_", "-"))
                 if (v := params.get("premium_progress_bar_enabled")) is not None:
                     kwargs["premium_progress_bar_enabled"] = v
+                if (v := params.get("community")) is not None:
+                    if v is True:
+                        rules_ch = kwargs.get("rules_channel") or params.get("rules_channel")
+                        updates_ch = kwargs.get("public_updates_channel") or params.get("public_updates_channel")
+                        if not rules_ch or not updates_ch:
+                            raise ValueError(
+                                "community mode requires rules_channel and public_updates_channel"
+                            )
+                    kwargs["community"] = v
                 await guild.edit(**kwargs)
                 return "Server settings updated"
 

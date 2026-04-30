@@ -649,3 +649,99 @@ async def test_delete_webhook():
     result = await executor.execute("delete_webhook", {"webhook": "mon-webhook"}, guild)
     wh.delete.assert_called_once()
     assert "mon-webhook" in result
+
+
+@pytest.mark.asyncio
+async def test_edit_webhook():
+    guild = _make_guild()
+    guild, _, _, wh, *_ = _extend_guild(guild)
+    executor = Executor()
+    result = await executor.execute(
+        "edit_webhook", {"webhook": "mon-webhook", "name": "new-name"}, guild
+    )
+    wh.edit.assert_called_once_with(name="new-name")
+    assert "mon-webhook" in result
+
+
+# ── Scheduled Events — Stage & External ──────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_create_scheduled_event_stage():
+    guild = _make_guild()
+    guild, _, _, _, evt, *_ = _extend_guild(guild)
+
+    # Add a stage channel to guild.channels
+    stage_ch = MagicMock()
+    stage_ch.name = "stage-channel"
+    guild.channels = [stage_ch] + list(guild.channels)
+
+    evt.name = "Grand Concert"
+    executor = Executor()
+    result = await executor.execute(
+        "create_scheduled_event",
+        {
+            "name": "Grand Concert",
+            "start_time": "2026-06-01T19:00:00",
+            "entity_type": "stage",
+            "channel": "stage-channel",
+        },
+        guild,
+    )
+    guild.create_scheduled_event.assert_called_once()
+    call_kwargs = guild.create_scheduled_event.call_args.kwargs
+    import discord
+    assert call_kwargs["entity_type"] == discord.EntityType.stage_instance
+    assert call_kwargs["channel"] is stage_ch
+    assert "Grand Concert" in result
+
+
+@pytest.mark.asyncio
+async def test_create_scheduled_event_external():
+    guild = _make_guild()
+    guild, _, _, _, evt, *_ = _extend_guild(guild)
+
+    evt.name = "Paris Meetup"
+    executor = Executor()
+    result = await executor.execute(
+        "create_scheduled_event",
+        {
+            "name": "Paris Meetup",
+            "start_time": "2026-06-01T18:00:00Z",
+            "end_time": "2026-06-01T20:00:00Z",
+            "entity_type": "external",
+            "location": "Paris",
+        },
+        guild,
+    )
+    guild.create_scheduled_event.assert_called_once()
+    call_kwargs = guild.create_scheduled_event.call_args.kwargs
+    import discord
+    assert call_kwargs["entity_type"] == discord.EntityType.external
+    assert call_kwargs["location"] == "Paris"
+    assert call_kwargs["end_time"] is not None
+    assert "Paris Meetup" in result
+
+
+# ── edit_member voice ops ─────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_edit_member_voice_ops():
+    guild = _make_guild()
+    guild, edit_ch, member, *_ = _extend_guild(guild)
+    # Add a voice channel named "general-voice"
+    voice_ch = MagicMock()
+    voice_ch.name = "general-voice"
+    guild.channels = [voice_ch] + list(guild.channels)
+
+    executor = Executor()
+    result = await executor.execute(
+        "edit_member",
+        {"user": "999", "mute": True, "deaf": False, "move_to_channel": "general-voice"},
+        guild,
+    )
+    member.edit.assert_called_once()
+    call_kwargs = member.edit.call_args.kwargs
+    assert call_kwargs["mute"] is True
+    assert call_kwargs["deafen"] is False
+    assert call_kwargs["voice_channel"] is voice_ch
+    assert "999" in result
