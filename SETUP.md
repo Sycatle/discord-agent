@@ -8,40 +8,58 @@
 4. Under **Token**, click **Reset Token** and copy it — this is your `DISCORD_TOKEN`
 5. Disable **Public Bot** if you only want this on your own servers
 
-## 2. Set bot permissions
+## 2. Bot permissions and intents
 
-In the **Bot** tab, under **Privileged Gateway Intents**, no extra intents are needed.
+In the **Bot** tab, enable the following **Privileged Gateway Intents**:
 
-When generating the invite link (step 4), the bot needs these permissions:
+- **Message Content Intent** (so the bot can read mentions of itself)
+- **Server Members Intent** (to resolve member targets)
 
-- Manage Channels
-- Manage Roles
+For full functionality across the 27 supported actions, the bot needs these
+guild permissions:
 
-## 3. Enable slash commands
+| Permission | Used by |
+|---|---|
+| Manage Channels | text/voice/forum/stage create / edit / delete, invites, set permissions |
+| Manage Roles | role create / edit / delete / assign / remove |
+| Manage Webhooks | webhook create / edit / delete |
+| Manage Server | server settings, AutoMod rules, welcome screen |
+| Manage Events | scheduled events |
+| Moderate Members | member nickname / mute / deafen / timeout |
+| Create Instant Invite | invite create |
+
+You can request a narrower subset if you only need a subset of features —
+the bot pre-checks each action's permission before calling Discord and
+will reply with a clear "Missing permission" message if it lacks the
+right.
+
+## 3. Generate the invite URL
 
 Go to **OAuth2 → URL Generator**:
 
 - Scopes: `bot`, `applications.commands`
-- Bot permissions: `Manage Channels`, `Manage Roles`
+- Bot permissions: pick the ones from the table above
 
-Copy the generated URL, open it in your browser, and invite the bot to your server.
+Copy the generated URL, open it in your browser, and invite the bot to
+your server.
 
 ## 4. Get your Guild ID
 
-In Discord, enable **Developer Mode** (Settings → Advanced → Developer Mode).  
-Right-click your server name → **Copy Server ID** — this is your `DISCORD_GUILD_ID`.
+In Discord, enable **Developer Mode** (Settings → Advanced → Developer Mode).
+Right-click your server name → **Copy Server ID** — this is your
+`DISCORD_GUILD_ID`.
 
 ## 5. Get an LLM API key
 
 **Claude (default)**
 
-Go to [console.anthropic.com](https://console.anthropic.com), create an API key.  
-Set `LLM_PROVIDER=claude` and `LLM_API_KEY=sk-ant-...`
+Go to [console.anthropic.com](https://console.anthropic.com), create an
+API key. Set `LLM_PROVIDER=claude` and `LLM_API_KEY=sk-ant-...`
 
 **OpenAI**
 
-Go to [platform.openai.com/api-keys](https://platform.openai.com/api-keys), create an API key.  
-Set `LLM_PROVIDER=openai` and `LLM_API_KEY=sk-...`
+Go to [platform.openai.com/api-keys](https://platform.openai.com/api-keys),
+create an API key. Set `LLM_PROVIDER=openai` and `LLM_API_KEY=sk-...`
 
 ## 6. Configure the environment
 
@@ -60,13 +78,14 @@ LLM_MODEL=                   # optional — leave empty for provider default
 ```
 
 `LLM_MODEL` defaults:
+
 - Claude: `claude-sonnet-4-6`
 - OpenAI: `gpt-4o`
 
 ## 7. Install dependencies and run
 
 ```bash
-# Install uv if needed
+# Install uv if you don't have it
 curl -Ls https://astral.sh/uv/install.sh | sh
 
 # Install dependencies
@@ -79,22 +98,19 @@ uv run architect
 You should see:
 
 ```
-Bot connecté : architect#1234 (guild_id=123456789)
+Bot connected: architect#1234 (guild_id=123456789)
 ```
 
-## 8. Use the command
+## 8. Talk to the bot
 
-In your Discord server (admin only):
-
-```
-/architect <prompt>
-```
-
-Example:
+Mention the bot in your server (admin only):
 
 ```
-/architect Create a Gaming category with #general and #voice, and a Joueur role
+@architect Create a Gaming category with #general and #voice, and a Player role
 ```
 
-The bot will show a plan embed. Click **Confirmer** to execute or **Annuler** to abort.  
-The confirmation times out after 120 seconds.
+The bot will reply with a plan embed listing every action it intends
+to take. Click **Confirm all** to execute the whole plan, **Atomic
+(rollback on error)** to roll back if any step fails, **Review** to
+approve actions one by one, or **Cancel** to abort. Confirmation
+times out after 5 minutes.
