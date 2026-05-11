@@ -52,3 +52,6 @@ Thumbs.db
 
 # Guild context data (per-server, not committed)
 data/
+
+# Local planning / spec notes
+docs/superpowers/
