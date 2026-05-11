@@ -93,9 +93,9 @@ async def test_invalid_params_raises_in_strict_mode():
 @pytest.mark.parametrize(
     ("exc_factory", "expected"),
     [
-        (lambda: discord.Forbidden(MagicMock(status=403), "no"), "Action refused by Discord"),
-        (lambda: discord.NotFound(MagicMock(status=404), "gone"), "Entity not found"),
-        (lambda: _make_http_exception(429, "rate limited"), "Discord error"),
+        (lambda: discord.Forbidden(MagicMock(status=403), "no"), "🔒"),
+        (lambda: discord.NotFound(MagicMock(status=404), "gone"), "❓"),
+        (lambda: _make_http_exception(429, "rate limited"), "⏳"),
     ],
 )
 async def test_discord_errors_wrapped_in_non_strict_mode(exc_factory, expected):
@@ -103,6 +103,7 @@ async def test_discord_errors_wrapped_in_non_strict_mode(exc_factory, expected):
     guild.create_category = AsyncMock(side_effect=exc_factory())
     result = await Executor().execute("create_category", {"name": "x"}, guild)
     assert expected in result
+    assert "create_category" in result
 
 
 @pytest.mark.asyncio

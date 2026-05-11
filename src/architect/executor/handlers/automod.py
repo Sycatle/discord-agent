@@ -79,7 +79,7 @@ def _build_actions(guild: discord.Guild, actions: list[str]) -> list[discord.Aut
 
 
 async def _find_rule(guild: discord.Guild, ref: str) -> discord.AutoModRule:
-    rules = await guild.fetch_auto_moderation_rules()
+    rules = await guild.fetch_automod_rules()
     rule = next((r for r in rules if str(r.id) == ref or r.name == ref), None)
     if rule is None:
         raise ValueError(f"AutoMod rule not found: {ref!r}")

@@ -43,7 +43,7 @@ def _make_guild() -> MagicMock:
     rule.id = 999
     rule.edit = AsyncMock()
     rule.delete = AsyncMock()
-    guild.fetch_auto_moderation_rules = AsyncMock(return_value=[rule])
+    guild.fetch_automod_rules = AsyncMock(return_value=[rule])
 
     created = MagicMock()
     created.name = "no-spam"
@@ -169,7 +169,7 @@ async def test_edit_automod_rule_full_payload():
 @pytest.mark.asyncio
 async def test_edit_automod_rule_unknown_raises():
     guild = _make_guild()
-    guild.fetch_auto_moderation_rules = AsyncMock(return_value=[])
+    guild.fetch_automod_rules = AsyncMock(return_value=[])
     with pytest.raises(ValueError, match="AutoMod rule not found"):
         await edit_automod_rule(EditAutoModRuleParams(rule="ghost"), guild)
 
@@ -177,6 +177,6 @@ async def test_edit_automod_rule_unknown_raises():
 @pytest.mark.asyncio
 async def test_delete_automod_rule():
     guild = _make_guild()
-    rule = (await guild.fetch_auto_moderation_rules())[0]
+    rule = (await guild.fetch_automod_rules())[0]
     await delete_automod_rule(DeleteAutoModRuleParams(rule="no-spam"), guild)
     rule.delete.assert_called_once()

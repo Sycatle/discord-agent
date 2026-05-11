@@ -52,8 +52,6 @@ async def create_forum_channel(params: CreateForumChannelParams, guild: discord.
         kwargs["nsfw"] = params.nsfw
     if params.available_tags:
         kwargs["available_tags"] = [discord.ForumTag(name=t) for t in params.available_tags]
-    if params.require_tag is not None:
-        kwargs["require_tag"] = params.require_tag
     if params.default_sort_order is not None:
         sort_map = {
             "latest_activity": discord.ForumOrderType.latest_activity,
@@ -66,7 +64,9 @@ async def create_forum_channel(params: CreateForumChannelParams, guild: discord.
             "gallery": discord.ForumLayoutType.gallery_view,
         }
         kwargs["default_layout"] = layout_map[params.default_forum_layout]
-    await guild.create_forum(**kwargs)
+    forum = await guild.create_forum(**kwargs)
+    if params.require_tag is not None:
+        await forum.edit(require_tag=params.require_tag)
     return f"Forum channel created: #{params.name}"
 
 

@@ -258,7 +258,7 @@ def _extend_guild(guild):
     rule.enabled = True
     rule.edit = AsyncMock()
     rule.delete = AsyncMock()
-    guild.fetch_auto_moderation_rules = AsyncMock(return_value=[rule])
+    guild.fetch_automod_rules = AsyncMock(return_value=[rule])
     guild.create_automod_rule = AsyncMock(return_value=rule)
 
     # guild.edit

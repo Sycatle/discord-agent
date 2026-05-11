@@ -88,9 +88,14 @@ class OpenAIProvider(LLMProvider):
         system_prompt: str,
         messages: list[dict],
         tools: list[dict],
+        volatile_suffix: str = "",
     ) -> list[dict]:
+        # OpenAI doesn't surface prompt caching at this API; just concatenate.
+        full_system = system_prompt
+        if volatile_suffix:
+            full_system = f"{system_prompt}\n\n{volatile_suffix}"
         openai_messages = [
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": full_system},
             *_convert_messages(messages),
         ]
         openai_tools = _convert_tools(tools)

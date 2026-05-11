@@ -59,7 +59,9 @@ def _make_guild() -> MagicMock:
     invite.delete = AsyncMock()
     guild.invites = AsyncMock(return_value=[invite])
 
-    guild.create_forum = AsyncMock(return_value=MagicMock(name="forum"))
+    forum_mock = MagicMock(name="forum")
+    forum_mock.edit = AsyncMock()
+    guild.create_forum = AsyncMock(return_value=forum_mock)
     guild.create_stage_channel = AsyncMock(return_value=MagicMock(name="stage"))
     return guild
 
@@ -86,7 +88,10 @@ async def test_create_forum_with_full_payload():
     kwargs = guild.create_forum.call_args.kwargs
     assert kwargs["name"] == "discussion"
     assert kwargs["slowmode_delay"] == 10
-    assert kwargs["require_tag"] is True
+    # require_tag isn't supported by Guild.create_forum — applied via ForumChannel.edit afterwards
+    assert "require_tag" not in kwargs
+    forum = guild.create_forum.return_value
+    forum.edit.assert_awaited_once_with(require_tag=True)
 
 
 @pytest.mark.asyncio

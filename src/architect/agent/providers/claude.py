@@ -15,20 +15,27 @@ class ClaudeProvider(LLMProvider):
         system_prompt: str,
         messages: list[dict],
         tools: list[dict],
+        volatile_suffix: str = "",
     ) -> list[dict]:
-        # Cache the system prompt and the tools schema (the two largest blocks
-        # and the most stable across turns). The last cache_control block covers
-        # everything before it in the canonical order tools → system → messages.
+        # Cache the tools schema and the stable system prompt: these are the
+        # two largest blocks and are stable across turns. The cache breakpoint
+        # is placed on the stable system block so the prefix cache covers
+        # tools + stable system. The volatile suffix (current server state)
+        # is appended as a SEPARATE, NON-cached system block — it changes
+        # every turn and would otherwise bust the prefix cache.
         cached_tools = [
             {**t, "cache_control": {"type": "ephemeral"}} if i == len(tools) - 1 else t
             for i, t in enumerate(tools)
         ]
+        system_blocks: list[dict] = [
+            {"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}
+        ]
+        if volatile_suffix:
+            system_blocks.append({"type": "text", "text": volatile_suffix})
         msg = await self._client.messages.create(
             model=self._model,
             max_tokens=4096,
-            system=[
-                {"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}
-            ],
+            system=system_blocks,
             messages=messages,
             tools=cached_tools,
         )
