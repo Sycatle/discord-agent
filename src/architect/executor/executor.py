@@ -18,6 +18,10 @@ from typing import Any
 import discord
 from pydantic import ValidationError
 
+from architect.executor.errors import (
+    extract_learned_constraint,
+    format_discord_error,
+)
 from architect.executor.handlers import HANDLERS
 from architect.executor.rollback import ROLLBACK_ACTIONS
 
@@ -34,9 +38,10 @@ class ExecuteError(Exception):
     to stay compatible with the agentic loop.
     """
 
-    def __init__(self, message: str) -> None:
+    def __init__(self, message: str, *, learned_constraint: str | None = None) -> None:
         super().__init__(message)
         self.message = message
+        self.learned_constraint = learned_constraint
 
 
 class Executor:
@@ -81,23 +86,14 @@ class Executor:
 
         try:
             return await spec.handler(validated, guild)
-        except discord.Forbidden as e:
-            logger.warning("Discord Forbidden on %s: %s", tool_name, e)
-            msg = f"Action refused by Discord (permissions or role hierarchy): `{tool_name}`."
-            if strict:
-                raise ExecuteError(msg) from e
-            return msg
-        except discord.NotFound as e:
-            logger.warning("Discord NotFound on %s: %s", tool_name, e)
-            msg = (
-                f"Entity not found (possibly deleted between preview and execution): `{tool_name}`."
-            )
-            if strict:
-                raise ExecuteError(msg) from e
-            return msg
         except discord.HTTPException as e:
-            logger.exception("Discord HTTPException on %s", tool_name)
-            msg = f"Discord error ({e.status}) on `{tool_name}`: {e.text or e}"
+            # discord.Forbidden and discord.NotFound both inherit from
+            # HTTPException, so a single branch with `format_discord_error`
+            # produces a richer message (mapping Discord error `code` →
+            # friendly text + emoji) for all of them.
+            logger.warning("Discord HTTPException on %s: %s", tool_name, e)
+            msg = format_discord_error(e, tool_name)
+            learned = extract_learned_constraint(e)
             if strict:
-                raise ExecuteError(msg) from e
+                raise ExecuteError(msg, learned_constraint=learned) from e
             return msg

@@ -6,6 +6,7 @@ from discord.ext import commands
 from architect.agent.agent import ArchitectAgent
 from architect.agent.providers.base import LLMProvider
 from architect.agent.providers.claude import ClaudeProvider
+from architect.bot.architect_command import ArchitectCommand
 from architect.bot.context_command import ContextCommand
 from architect.bot.events import BotEvents
 from architect.bot.history import ConversationHistory
@@ -33,8 +34,10 @@ class ArchitectBot(commands.Bot):
         agent = ArchitectAgent(plan_provider=plan_provider)
         executor = Executor()
         history = ConversationHistory()
-        await self.add_cog(BotEvents(self, agent, executor, history))
+        events_cog = BotEvents(self, agent, executor, history)
+        await self.add_cog(events_cog)
         await self.add_cog(ContextCommand(self))
+        await self.add_cog(ArchitectCommand(self, events_cog))
         guild = discord.Object(id=settings.discord_guild_id)
         self.tree.copy_global_to(guild=guild)
         await self.tree.sync(guild=guild)
