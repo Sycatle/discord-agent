@@ -35,4 +35,21 @@ REQUIRED_PERMISSIONS: dict[str, str] = {
     "delete_automod_rule": "manage_guild",
     "edit_server": "manage_guild",
     "edit_welcome_screen": "manage_guild",
+    # Threads
+    "create_thread": "manage_threads",
+    "archive_thread": "manage_threads",
+    "unarchive_thread": "manage_threads",
+    "lock_thread": "manage_threads",
+    # Moderation
+    "ban_member": "ban_members",
+    "kick_member": "kick_members",
+    "unban_member": "ban_members",
+    "bulk_timeout_members": "moderate_members",
+    # Emojis / stickers
+    "create_emoji": "manage_emojis_and_stickers",
+    "delete_emoji": "manage_emojis_and_stickers",
+    "rename_emoji": "manage_emojis_and_stickers",
+    "delete_sticker": "manage_emojis_and_stickers",
+    # Permission overrides
+    "set_channel_permission_overrides": "manage_roles",
 }

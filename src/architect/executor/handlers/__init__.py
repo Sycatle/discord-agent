@@ -18,11 +18,17 @@ from pydantic import BaseModel
 from architect.executor.handlers import (
     automod,
     channels,
+    emojis,
     events,
     members,
+    moderation,
     readonly,
     roles,
     server,
+    threads,
+)
+from architect.executor.handlers import (
+    permissions as permissions_handlers,
 )
 from architect.executor.permissions import REQUIRED_PERMISSIONS
 
@@ -97,6 +103,37 @@ _SERVER = {
     "edit_welcome_screen": (server.edit_welcome_screen, server.EditWelcomeScreenParams),
 }
 
+_THREADS = {
+    "create_thread": (threads.create_thread, threads.CreateThreadParams),
+    "archive_thread": (threads.archive_thread, threads.ArchiveThreadParams),
+    "unarchive_thread": (threads.unarchive_thread, threads.UnarchiveThreadParams),
+    "lock_thread": (threads.lock_thread, threads.LockThreadParams),
+}
+
+_MODERATION = {
+    "ban_member": (moderation.ban_member, moderation.BanMemberParams),
+    "kick_member": (moderation.kick_member, moderation.KickMemberParams),
+    "unban_member": (moderation.unban_member, moderation.UnbanMemberParams),
+    "bulk_timeout_members": (
+        moderation.bulk_timeout_members,
+        moderation.BulkTimeoutMembersParams,
+    ),
+}
+
+_EMOJIS = {
+    "create_emoji": (emojis.create_emoji, emojis.CreateEmojiParams),
+    "delete_emoji": (emojis.delete_emoji, emojis.DeleteEmojiParams),
+    "rename_emoji": (emojis.rename_emoji, emojis.RenameEmojiParams),
+    "delete_sticker": (emojis.delete_sticker, emojis.DeleteStickerParams),
+}
+
+_PERMISSIONS = {
+    "set_channel_permission_overrides": (
+        permissions_handlers.set_channel_permission_overrides,
+        permissions_handlers.SetChannelPermissionOverridesParams,
+    ),
+}
+
 _READONLY: dict[str, tuple[Handler, type[BaseModel]]] = {
     "list_channels": (readonly.list_channels, readonly.NoParams),
     "list_roles": (readonly.list_roles, readonly.NoParams),
@@ -107,12 +144,34 @@ _READONLY: dict[str, tuple[Handler, type[BaseModel]]] = {
     "list_scheduled_events": (readonly.list_scheduled_events, readonly.NoParams),
     "list_automod_rules": (readonly.list_automod_rules, readonly.NoParams),
     "check_bot_permissions": (readonly.check_bot_permissions, readonly.NoParams),
+    "validate_plan": (readonly.validate_plan_handler, readonly.ValidatePlanParams),
+    "list_threads": (readonly.list_threads, readonly.ListThreadsParams),
+    "list_emojis": (readonly.list_emojis, readonly.NoParams),
+    "list_stickers": (readonly.list_stickers, readonly.NoParams),
+    "get_audit_log": (readonly.get_audit_log, readonly.GetAuditLogParams),
+    "get_permission_chain": (
+        readonly.get_permission_chain,
+        readonly.GetPermissionChainParams,
+    ),
+    "simulate_action": (readonly.simulate_action, readonly.SimulateActionParams),
 }
 
 
 HANDLERS: dict[str, HandlerSpec] = {
     name: _spec(handler, model, name)
-    for group in (_CHANNELS, _ROLES, _MEMBERS, _EVENTS, _AUTOMOD, _SERVER, _READONLY)
+    for group in (
+        _CHANNELS,
+        _ROLES,
+        _MEMBERS,
+        _EVENTS,
+        _AUTOMOD,
+        _SERVER,
+        _THREADS,
+        _MODERATION,
+        _EMOJIS,
+        _PERMISSIONS,
+        _READONLY,
+    )
     for name, (handler, model) in group.items()
 }
 

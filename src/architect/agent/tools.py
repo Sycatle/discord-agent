@@ -10,7 +10,7 @@ schema and the runtime validation are guaranteed to match.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -27,10 +27,19 @@ READONLY_TOOLS: frozenset[str] = frozenset(
         "list_scheduled_events",
         "list_automod_rules",
         "check_bot_permissions",
+        "validate_plan",
+        "list_threads",
+        "list_emojis",
+        "list_stickers",
+        "get_audit_log",
+        "get_permission_chain",
+        "simulate_action",
     }
 )
 
-META_TOOLS: frozenset[str] = frozenset({"ask_clarification", "generate_plan"})
+META_TOOLS: frozenset[str] = frozenset(
+    {"ask_clarification", "generate_plan", "record_preference", "record_finding"}
+)
 
 MUTATION_TOOLS: frozenset[str] = frozenset(name for name in HANDLERS if name not in READONLY_TOOLS)
 
@@ -69,9 +78,52 @@ class GeneratePlanParams(BaseModel):
     actions: list[_PlannedAction] = Field(description="Ordered list of actions to execute")
 
 
+class RecordPreferenceParams(BaseModel):
+    """Persist a durable preference or past decision for this guild.
+
+    Call this when the user states a constraint that should outlive the
+    current conversation (style, language, scope, recurring refusals).
+    Examples: "names in French", "max 4 categories", "user refused AutoMod".
+    Do NOT call for ephemeral context that only matters for the current
+    plan — store only what should still apply on the next /clear or restart.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = Field(description="Short statement of the preference or decision")
+    kind: Literal["preference", "decision"] = Field(
+        description="'preference' for durable constraints, 'decision' for past user choices"
+    )
+
+
+class RecordFindingParams(BaseModel):
+    """Persist an audit observation visible to subsequent turns.
+
+    Use this in audit mode to capture what you've learned about the guild
+    (a risk, a healthy pattern, an opportunity for improvement). Findings
+    are cheap to store and surface in the system prompt on every turn —
+    don't record trivial facts already visible in `Current server state`.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    category: Literal["health", "risk", "opportunity"] = Field(
+        description="'risk' if it's a problem, 'health' if it's working well, "
+        "'opportunity' if it suggests an improvement"
+    )
+    summary: str = Field(description="One-sentence summary of the observation")
+    severity: int = Field(
+        ge=1,
+        le=5,
+        description="Importance score (1 = trivial, 5 = critical)",
+    )
+
+
 _META_MODELS: dict[str, type[BaseModel]] = {
     "ask_clarification": AskClarificationParams,
     "generate_plan": GeneratePlanParams,
+    "record_preference": RecordPreferenceParams,
+    "record_finding": RecordFindingParams,
 }
 
 

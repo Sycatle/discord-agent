@@ -38,10 +38,35 @@ class PlanGeneratedEvent:
     tool_use_id: str
 
 
+@dataclass
+class RecordPreferenceEvent:
+    """Agent decided to persist a durable preference or decision for the guild.
+
+    `kind` is "preference" (style/naming/scope constraints) or "decision"
+    (record of a user choice made in the past — e.g. user refused AutoMod).
+    """
+
+    text: str
+    kind: str
+    tool_use_id: str
+
+
+@dataclass
+class RecordFindingEvent:
+    """Agent recorded an audit observation (risk / health / opportunity)."""
+
+    category: str
+    summary: str
+    severity: int
+    tool_use_id: str
+
+
 type AgentEvent = (
     ReplyEvent
     | ConfirmationRequiredEvent
     | ReadOnlyToolEvent
     | ClarificationEvent
     | PlanGeneratedEvent
+    | RecordPreferenceEvent
+    | RecordFindingEvent
 )
