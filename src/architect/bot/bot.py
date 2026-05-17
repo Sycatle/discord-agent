@@ -38,12 +38,14 @@ class ArchitectBot(commands.Bot):
         await self.add_cog(events_cog)
         await self.add_cog(ContextCommand(self))
         await self.add_cog(ArchitectCommand(self, events_cog))
-        guild = discord.Object(id=settings.discord_guild_id)
-        self.tree.copy_global_to(guild=guild)
-        await self.tree.sync(guild=guild)
+        for gid in settings.discord_guild_ids:
+            guild = discord.Object(id=gid)
+            self.tree.copy_global_to(guild=guild)
+            await self.tree.sync(guild=guild)
 
     async def on_ready(self) -> None:
-        print(f"Bot connected: {self.user} (guild_id={settings.discord_guild_id})")
+        guild_ids = ",".join(str(g) for g in settings.discord_guild_ids)
+        print(f"Bot connected: {self.user} (guild_ids=[{guild_ids}])")
 
     async def on_error(self, event_method: str, *args, **kwargs) -> None:
         logger.exception("Uncaught error in event '%s'", event_method)

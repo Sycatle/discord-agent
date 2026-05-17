@@ -4,7 +4,22 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from architect.config import settings
 from architect.storage.guild_context import GuildContext, load, save
+
+
+async def _reject_if_unauthorized(interaction: discord.Interaction) -> bool:
+    if interaction.guild_id is None:
+        await interaction.response.send_message(
+            "This command must be used inside a server.", ephemeral=True
+        )
+        return True
+    if interaction.guild_id not in settings.discord_guild_ids:
+        await interaction.response.send_message(
+            "This bot is not configured for this server.", ephemeral=True
+        )
+        return True
+    return False
 
 
 class ContextModal(discord.ui.Modal, title="Server context"):
@@ -73,11 +88,9 @@ class ContextCommand(commands.Cog):
 
     @context_group.command(name="set", description="Set the server context (admin only)")
     async def context_set(self, interaction: discord.Interaction) -> None:
-        if interaction.guild_id is None:
-            await interaction.response.send_message(
-                "This command must be used inside a server.", ephemeral=True
-            )
+        if await _reject_if_unauthorized(interaction):
             return
+        assert interaction.guild_id is not None
         # In a guild context, interaction.user is always a discord.Member which has
         # guild_permissions; the User branch of the union doesn't apply at runtime.
         guild_perms = getattr(interaction.user, "guild_permissions", None)
@@ -91,11 +104,9 @@ class ContextCommand(commands.Cog):
 
     @context_group.command(name="show", description="Show the current server context")
     async def context_show(self, interaction: discord.Interaction) -> None:
-        if interaction.guild_id is None:
-            await interaction.response.send_message(
-                "This command must be used inside a server.", ephemeral=True
-            )
+        if await _reject_if_unauthorized(interaction):
             return
+        assert interaction.guild_id is not None
         ctx = load(interaction.guild_id)
         if ctx is None:
             await interaction.response.send_message(

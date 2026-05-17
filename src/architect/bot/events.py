@@ -460,22 +460,43 @@ class BotEvents(commands.Cog):
         self._agent = agent
         self._executor = executor
         self._history = history
-        # Session stats exposed by /architect status. Counters are bumped from
-        # _execute_batch (success / error / rate-limited) so the slash command
-        # can read them without poking private state.
-        self._session_stats: dict[str, Any] = {
-            "started_at": datetime.now(UTC),
-            "plans_executed": 0,
-            "actions_succeeded": 0,
-            "action_errors": 0,
-            "rate_limited_actions": 0,
-        }
+        self._started_at = datetime.now(UTC)
+        # Session stats per guild — bumped from _execute_batch (success /
+        # error / rate-limited) so /architect status returns numbers scoped
+        # to the guild the command was invoked in.
+        self._session_stats: dict[int, dict[str, Any]] = {}
         # Last executed plan per guild — feeds /architect undo.
         self._last_executed: dict[int, list[dict]] = {}
+        # asyncio.Lock per channel_id. A user spamming a thread should not
+        # cause two agent loops to interleave history writes / tool calls
+        # on the same conversation. Cross-guild and cross-channel traffic
+        # runs in parallel.
+        self._channel_locks: dict[int, asyncio.Lock] = {}
 
-    def session_stats(self) -> dict[str, Any]:
-        """Return a shallow copy of the session counters for slash commands."""
-        return dict(self._session_stats)
+    def _stats_for(self, guild_id: int) -> dict[str, Any]:
+        """Return the mutable stats dict for a guild, initializing if needed."""
+        stats = self._session_stats.get(guild_id)
+        if stats is None:
+            stats = {
+                "started_at": self._started_at,
+                "plans_executed": 0,
+                "actions_succeeded": 0,
+                "action_errors": 0,
+                "rate_limited_actions": 0,
+            }
+            self._session_stats[guild_id] = stats
+        return stats
+
+    def _lock_for(self, channel_id: int) -> asyncio.Lock:
+        lock = self._channel_locks.get(channel_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._channel_locks[channel_id] = lock
+        return lock
+
+    def session_stats(self, guild_id: int) -> dict[str, Any]:
+        """Return a shallow copy of the session counters for a guild."""
+        return dict(self._stats_for(guild_id))
 
     def last_executed(self, guild_id: int) -> list[dict]:
         """Return the last successfully executed plan for a guild (or [])."""
@@ -508,7 +529,7 @@ class BotEvents(commands.Cog):
         if guild is None:
             await message.reply("This bot only works inside a Discord server.")
             return
-        if guild.id != settings.discord_guild_id:
+        if guild.id not in settings.discord_guild_ids:
             await message.reply("This bot is not configured for this server.")
             return
 
@@ -533,46 +554,52 @@ class BotEvents(commands.Cog):
         # clarifications. Keying off message.channel.id would split the first
         # turn from later turns once the thread is created.
         channel_id = thread.id if hasattr(thread, "id") else message.channel.id
-        self._history.append(channel_id, "user", prompt)
 
-        # Prefer the discord.py gateway cache (`guild.channels`) over a fresh
-        # HTTP fetch_channels. The cache is kept up to date by CHANNEL_*
-        # events delivered on the gateway, and is already populated by the
-        # time we process a user message. fetch_channels was a ~200-400ms
-        # round-trip per user message — paid for marginal accuracy.
-        # AutoMod rules are not cached by discord.py and matter for plan
-        # accuracy (Discord rejects a 2nd rule of the same trigger type), so
-        # we fetch them once per turn. Tolerate failures (perms missing).
-        automod_rules: list | None = None
-        try:
-            automod_rules = await guild.fetch_automod_rules()
-        except (discord.Forbidden, discord.HTTPException, AttributeError, TypeError):
-            logger.debug("fetch_automod_rules unavailable or failed")
-        guild_context = _serialize_guild(guild, automod_rules=automod_rules)
-        snapshot = build_guild_snapshot(guild, automod_rules=automod_rules)
-        server_context = load_guild_context(guild.id)
+        # Serialize agent turns per channel: two near-simultaneous mentions
+        # in the same thread would otherwise interleave history writes and
+        # tool calls. Different channels (and different guilds) remain
+        # independent — the lock is keyed by channel_id only.
+        async with self._lock_for(channel_id):
+            self._history.append(channel_id, "user", prompt)
 
-        status_msg = await thread.send(
-            embed=_make_embed("Analyse en cours...", color=discord.Color.orange())
-        )
+            # Prefer the discord.py gateway cache (`guild.channels`) over a fresh
+            # HTTP fetch_channels. The cache is kept up to date by CHANNEL_*
+            # events delivered on the gateway, and is already populated by the
+            # time we process a user message. fetch_channels was a ~200-400ms
+            # round-trip per user message — paid for marginal accuracy.
+            # AutoMod rules are not cached by discord.py and matter for plan
+            # accuracy (Discord rejects a 2nd rule of the same trigger type), so
+            # we fetch them once per turn. Tolerate failures (perms missing).
+            automod_rules: list | None = None
+            try:
+                automod_rules = await guild.fetch_automod_rules()
+            except (discord.Forbidden, discord.HTTPException, AttributeError, TypeError):
+                logger.debug("fetch_automod_rules unavailable or failed")
+            guild_context = _serialize_guild(guild, automod_rules=automod_rules)
+            snapshot = build_guild_snapshot(guild, automod_rules=automod_rules)
+            server_context = load_guild_context(guild.id)
 
-        try:
-            await self._run_agent_loop(
-                message,
-                thread,
-                status_msg,
-                guild,
-                channel_id,
-                guild_context,
-                server_context,
-                snapshot,
+            status_msg = await thread.send(
+                embed=_make_embed("Analyse en cours...", color=discord.Color.orange())
             )
-        except Exception:
-            logger.exception("agent loop failed for channel %s", channel_id)
-            await self._safe_edit(
-                status_msg,
-                embed=_make_embed("An unexpected error occurred.", color=discord.Color.red()),
-            )
+
+            try:
+                await self._run_agent_loop(
+                    message,
+                    thread,
+                    status_msg,
+                    guild,
+                    channel_id,
+                    guild_context,
+                    server_context,
+                    snapshot,
+                )
+            except Exception:
+                logger.exception("agent loop failed for channel %s", channel_id)
+                await self._safe_edit(
+                    status_msg,
+                    embed=_make_embed("An unexpected error occurred.", color=discord.Color.red()),
+                )
 
     async def _safe_edit(self, msg: discord.Message, **kwargs: Any) -> None:
         """Edit a status message, swallowing HTTPException.
@@ -1237,12 +1264,12 @@ class BotEvents(commands.Cog):
                     params = action.get("params", {}) or {}
                     if exc is None:
                         state["completed"] += 1
-                        self._session_stats["actions_succeeded"] += 1
+                        self._stats_for(guild.id)["actions_succeeded"] += 1
                         completed.append(action)
                         completed_indices.add(idx)
                     else:
                         state["errors"] += 1
-                        self._session_stats["action_errors"] += 1
+                        self._stats_for(guild.id)["action_errors"] += 1
                         errors.append(f"{atype}({params.get('name', '?')}): {exc}")
                         if isinstance(exc, ExecuteError) and exc.learned_constraint:
                             self._record_learned_constraint(
@@ -1253,7 +1280,7 @@ class BotEvents(commands.Cog):
                     break
         finally:
             state["done"] = True
-            self._session_stats["rate_limited_actions"] += int(
+            self._stats_for(guild.id)["rate_limited_actions"] += int(
                 state.get("rate_limited_total", 0)
             )
             ticker.cancel()
@@ -1284,7 +1311,7 @@ class BotEvents(commands.Cog):
                 executed = executed[: max(len(executed) - rollback_count, 0)]
 
         success_count = state["completed"]
-        self._session_stats["plans_executed"] += 1
+        self._stats_for(guild.id)["plans_executed"] += 1
         return success_count - rollback_count, errors, rollback_count, executed
 
     async def _rollback(self, completed: list[dict], guild: discord.Guild) -> int:

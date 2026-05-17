@@ -17,6 +17,7 @@ from discord.ext import commands
 
 from architect.bot.events import BotEvents, _compute_inverse_plan, build_guild_snapshot
 from architect.bot.views import ConfirmResult, ConfirmView, PlanResult, PlanView
+from architect.config import settings
 from architect.executor.validator import validate_plan
 from architect.storage import snapshots as snapshots_store
 from architect.storage.guild_context import GuildContext
@@ -25,6 +26,26 @@ from architect.storage.guild_context import save as save_guild_context
 
 _SNAPSHOTS_DISPLAYED = 10
 _INVERSE_MAX_ACTIONS = 25
+
+
+async def _reject_if_unauthorized(interaction: discord.Interaction) -> bool:
+    """Reply with an ephemeral refusal if the guild is not whitelisted.
+
+    Returns True when the caller should abort. Defense in depth — slash
+    commands are only synced to whitelisted guilds, but a manual invoke
+    on a non-whitelisted guild would otherwise read/write its state.
+    """
+    if interaction.guild_id is None:
+        await interaction.response.send_message(
+            "This command must be used inside a server.", ephemeral=True
+        )
+        return True
+    if interaction.guild_id not in settings.discord_guild_ids:
+        await interaction.response.send_message(
+            "This bot is not configured for this server.", ephemeral=True
+        )
+        return True
+    return False
 
 
 def _format_duration(seconds: float) -> str:
@@ -54,7 +75,10 @@ class ArchitectCommand(commands.Cog):
 
     @architect_group.command(name="status", description="Session uptime and counters")
     async def status(self, interaction: discord.Interaction) -> None:
-        stats = self._events.session_stats()
+        if await _reject_if_unauthorized(interaction):
+            return
+        assert interaction.guild_id is not None  # narrowed by the guard above
+        stats = self._events.session_stats(interaction.guild_id)
         started_at = stats.get("started_at")
         uptime = (
             _format_duration(
@@ -88,11 +112,9 @@ class ArchitectCommand(commands.Cog):
 
     @architect_group.command(name="prefs", description="List persisted preferences")
     async def prefs(self, interaction: discord.Interaction) -> None:
-        if interaction.guild_id is None:
-            await interaction.response.send_message(
-                "This command must be used inside a server.", ephemeral=True
-            )
+        if await _reject_if_unauthorized(interaction):
             return
+        assert interaction.guild_id is not None
         ctx = load_guild_context(interaction.guild_id) or GuildContext(
             guild_id=interaction.guild_id
         )
@@ -111,11 +133,9 @@ class ArchitectCommand(commands.Cog):
         name="prefs-clear", description="Clear all preferences and decisions"
     )
     async def prefs_clear(self, interaction: discord.Interaction) -> None:
-        if interaction.guild_id is None:
-            await interaction.response.send_message(
-                "This command must be used inside a server.", ephemeral=True
-            )
+        if await _reject_if_unauthorized(interaction):
             return
+        assert interaction.guild_id is not None
         ctx = load_guild_context(interaction.guild_id)
         if ctx is None or (not ctx.preferences and not ctx.recent_decisions):
             await interaction.response.send_message(
@@ -135,11 +155,9 @@ class ArchitectCommand(commands.Cog):
         name="snapshots", description="List the most recent pre-exec snapshots"
     )
     async def snapshots(self, interaction: discord.Interaction) -> None:
-        if interaction.guild_id is None:
-            await interaction.response.send_message(
-                "This command must be used inside a server.", ephemeral=True
-            )
+        if await _reject_if_unauthorized(interaction):
             return
+        assert interaction.guild_id is not None
         paths = snapshots_store.list_snapshots(interaction.guild_id)
         if not paths:
             await interaction.response.send_message(
@@ -180,6 +198,8 @@ class ArchitectCommand(commands.Cog):
         as many read-only tools as needed (system prompt encourages this).
         Findings get persisted via `record_finding`.
         """
+        if await _reject_if_unauthorized(interaction):
+            return
         if interaction.channel is None:
             await interaction.response.send_message(
                 "Audit must be triggered inside a channel.", ephemeral=True
@@ -205,7 +225,10 @@ class ArchitectCommand(commands.Cog):
         name="undo", description="Undo the last executed plan for this server"
     )
     async def undo(self, interaction: discord.Interaction) -> None:
-        if interaction.guild_id is None or interaction.guild is None:
+        if await _reject_if_unauthorized(interaction):
+            return
+        assert interaction.guild_id is not None
+        if interaction.guild is None:
             await interaction.response.send_message(
                 "This command must be used inside a server.", ephemeral=True
             )
