@@ -243,7 +243,10 @@ class GetAuditLogParams(BaseModel):
 
 
 async def get_audit_log(params: GetAuditLogParams, guild: discord.Guild) -> str:
-    action = None
+    # discord.py 2.x's audit_logs accesses `action.value` unconditionally
+    # when called with the `action` kwarg, so passing None crashes. Only
+    # forward the kwarg when the caller explicitly filtered by action.
+    kwargs: dict = {"limit": params.limit}
     if params.action_type:
         action = getattr(discord.AuditLogAction, params.action_type, None)
         if action is None:
@@ -251,8 +254,9 @@ async def get_audit_log(params: GetAuditLogParams, guild: discord.Guild) -> str:
                 f"Unknown audit log action {params.action_type!r}. "
                 "Use a discord.AuditLogAction member name."
             )
+        kwargs["action"] = action
     entries: list[str] = []
-    async for entry in guild.audit_logs(limit=params.limit, action=action):
+    async for entry in guild.audit_logs(**kwargs):
         user = entry.user.name if entry.user else "?"
         target_name = getattr(entry.target, "name", str(entry.target)) if entry.target else "?"
         action_name = entry.action.name if entry.action else "?"
